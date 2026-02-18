@@ -27,7 +27,12 @@ import market_data as md
 import agent_brain as brain
 from database import init_db, save_portfolio_snapshot
 from economic_calendar import get_economic_calendar
-from craigslist_scraper import scrape_sf_apartments, analyze_apartment_deals_cached
+from craigslist_scraper import (
+    scrape_sf_apartments,
+    scrape_stanford_apartments,
+    analyze_apartment_deals_cached,
+    get_stanford_market_rates,
+)
 
 try:
     from config import PORT, FLASK_DEBUG
@@ -498,6 +503,69 @@ def refresh_apartments():
         })
     except Exception as e:
         logger.exception("Apartments refresh: %s", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/apartments/stanford")
+def get_stanford_apartments():
+    """Fetch and analyze Stanford area (peninsula) apartments. Student-friendly $1.5K–$6.5K (incl. 2BR). Returns top 200."""
+    try:
+        apartments = scrape_stanford_apartments(max_listings=SCRAPE_POOL_SIZE)
+        apartments = analyze_apartment_deals_cached(
+            apartments, max_return=MAX_APARTMENTS_RETURN, get_market_rates=get_stanford_market_rates
+        )
+        total = len(apartments)
+        excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
+        avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
+        return jsonify({
+            "apartments": apartments,
+            "stats": {
+                "total": total,
+                "excellent_deals": excellent,
+                "average_price": avg_price,
+            },
+            "last_updated": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Stanford apartments endpoint: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/apartments/stanford/refresh", methods=["POST"])
+def refresh_stanford_apartments():
+    """Manually refresh Stanford area listings. Rate-limited per IP (same as SF refresh)."""
+    ip = _client_ip(request)
+    allowed, retry_after = _check_refresh_rate_limit(ip)
+    if not allowed:
+        return (
+            jsonify({
+                "success": False,
+                "error": "refresh_limit",
+                "message": "Too many refreshes. Wait a bit before trying again.",
+                "retry_after_seconds": retry_after,
+            }),
+            429,
+            {"Retry-After": str(max(1, retry_after))},
+        )
+    try:
+        apartments = scrape_stanford_apartments(max_listings=SCRAPE_POOL_SIZE)
+        apartments = analyze_apartment_deals_cached(
+            apartments, max_return=MAX_APARTMENTS_RETURN, get_market_rates=get_stanford_market_rates
+        )
+        total = len(apartments)
+        excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
+        avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
+        return jsonify({
+            "success": True,
+            "apartments": apartments,
+            "stats": {
+                "total": total,
+                "excellent_deals": excellent,
+                "average_price": avg_price,
+            },
+        })
+    except Exception as e:
+        logger.exception("Stanford apartments refresh: %s", e)
         return jsonify({"success": False, "error": str(e)}), 500
 
 

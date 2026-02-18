@@ -898,270 +898,107 @@ body[data-theme="apartments"] .tab-btn.active {
   border-bottom-color: #006aff;
 }
 
-/* Zillow-style apartments container and cards */
-#apartments-tab .apartments-container {
+/* Zillow-style apartments container and cards (SF + Stanford area) */
+#apartments-tab .apartments-container,
+#stanford-apartments-tab .apartments-container {
   max-width: 1280px;
   margin: 0 auto;
 }
-#apartments-tab .apartments-header {
+#apartments-tab .apartments-header,
+#stanford-apartments-tab .apartments-header {
   margin-bottom: 24px;
 }
-#apartments-tab .apartments-title {
+#apartments-tab .apartments-title,
+#stanford-apartments-tab .apartments-title {
   font-family: "DM Sans", -apple-system, sans-serif;
   font-weight: 700;
   font-size: 1.75rem;
   color: #1a1a1a;
   letter-spacing: -0.02em;
 }
-#apartments-tab .range-subtitle {
-  color: #6b7280;
-  font-size: 0.9375rem;
-}
-#apartments-tab .refresh-btn {
-  background: #006aff;
-  color: #fff;
-  border-radius: 6px;
-  font-weight: 600;
-  padding: 10px 20px;
-  font-size: 0.9375rem;
-}
-#apartments-tab .refresh-btn:hover:not(:disabled) {
-  background: #0052cc;
-}
-#apartments-tab .refresh-btn:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
-}
-#apartments-tab .apartments-filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-#apartments-tab .apartments-filters select {
-  padding: 10px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  background: #fff;
-  color: #374151;
-  min-width: 140px;
-}
-#apartments-tab .apartments-filters select:focus {
-  border-color: #006aff;
-  outline: none;
-}
-#apartments-tab .apartments-stats {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 20px 24px;
-  margin-bottom: 24px;
-  display: flex;
-  gap: 32px;
-  color: #1a1a1a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-#apartments-tab .apartments-stats .stat-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-#apartments-tab .apartments-stats .stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #006aff;
-}
-#apartments-tab .apartments-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
-}
-#apartments-tab .apartment-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-  padding: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-#apartments-tab .apartment-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 106, 255, 0.12);
-  transform: translateY(-2px);
-}
-#apartments-tab .apt-photo-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%);
-  color: #9ca3af;
-  gap: 8px;
-}
-#apartments-tab .apt-photo-wrap {
-  height: 200px;
-  overflow: hidden;
-  background: #e5e7eb;
-}
-#apartments-tab .apt-thumbnail-link {
-  display: block;
-  height: 100%;
-  text-decoration: none;
-}
-#apartments-tab .apt-thumbnail {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  vertical-align: top;
-}
-#apartments-tab .apt-map-wrap {
-  position: relative;
-  height: 200px;
-  overflow: hidden;
-  background: #e5e7eb;
-}
-#apartments-tab .apt-map-iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  pointer-events: none;
-}
-#apartments-tab .apt-map-label {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 8px 12px;
-  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
-  color: #fff;
-  font-size: 0.8125rem;
-  font-weight: 500;
-}
-#apartments-tab .apt-location-placeholder .apt-photo-sub {
-  font-size: 0.75rem;
-  opacity: 0.85;
-}
-#apartments-tab .apt-map-link {
-  margin-top: 6px;
-  font-size: 0.75rem;
-  color: #006aff;
-  text-decoration: none;
-  font-weight: 500;
-}
-#apartments-tab .apt-map-link:hover {
-  text-decoration: underline;
-}
-#apartments-tab .apt-photo-icon {
-  font-size: 48px;
-  opacity: 0.7;
-}
-#apartments-tab .apt-photo-text {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-#apartments-tab .apartment-card .deal-badge {
-  top: 12px;
-  right: 12px;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  padding: 6px 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-#apartments-tab .apartment-card .apt-header {
-  padding: 16px 20px 12px;
-  margin-bottom: 0;
-}
-#apartments-tab .apartment-card .apt-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  line-height: 1.4;
-  padding-right: 70px;
-  margin: 0 0 8px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-#apartments-tab .apartment-card .apt-price {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #006aff;
-  margin: 0;
-}
-#apartments-tab .apartment-card .apt-details {
-  padding: 0 20px 12px;
-  margin-bottom: 0;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-#apartments-tab .apartment-card .apt-detail {
-  font-size: 0.8125rem;
-  color: #6b7280;
-}
-#apartments-tab .apartment-card .apt-metrics {
-  margin: 0 20px 16px;
-  padding: 12px 14px;
-  background: #f8fafc;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-}
-#apartments-tab .apartment-card .apt-metrics .metric-label {
-  color: #6b7280;
-  font-size: 0.6875rem;
-}
-#apartments-tab .apartment-card .apt-metrics .metric-value {
-  font-size: 0.9375rem;
-  color: #1a1a1a;
-}
-#apartments-tab .apartment-card .apt-metrics .metric-value.positive {
-  color: #0d9488;
-}
-#apartments-tab .apartment-card .apt-metrics .metric-value.negative {
-  color: #dc2626;
-}
-#apartments-tab .apartment-card .apt-metrics .metric-value.neutral {
-  color: #6b7280;
-}
-#apartments-tab .apartment-card .apt-analysis {
-  margin: 0 20px 16px;
-  padding: 12px 14px;
-  background: #eff6ff;
-  border-radius: 6px;
-  border-left: 3px solid #006aff;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: #374151;
-  font-style: normal;
-}
-#apartments-tab .apartment-card .apt-link {
-  display: block;
-  margin: 0 20px 20px;
-  padding: 12px 20px;
-  background: #006aff;
-  color: #fff;
-  text-align: center;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  text-decoration: none;
-  transition: background 0.2s;
-}
-#apartments-tab .apartment-card .apt-link:hover {
-  background: #0052cc;
-}
+#apartments-tab .range-subtitle,
+#stanford-apartments-tab .range-subtitle { color: #6b7280; font-size: 0.9375rem; }
+#apartments-tab .refresh-btn,
+#stanford-apartments-tab .refresh-btn { background: #006aff; color: #fff; border-radius: 6px; font-weight: 600; padding: 10px 20px; font-size: 0.9375rem; }
+#apartments-tab .refresh-btn:hover:not(:disabled),
+#stanford-apartments-tab .refresh-btn:hover:not(:disabled) { background: #0052cc; }
+#apartments-tab .refresh-btn:disabled,
+#stanford-apartments-tab .refresh-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+#apartments-tab .apartments-filters,
+#stanford-apartments-tab .apartments-filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+#apartments-tab .apartments-filters select,
+#stanford-apartments-tab .apartments-filters select { padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.875rem; background: #fff; color: #374151; min-width: 140px; }
+#apartments-tab .apartments-filters select:focus,
+#stanford-apartments-tab .apartments-filters select:focus { border-color: #006aff; outline: none; }
+#apartments-tab .apartments-stats,
+#stanford-apartments-tab .apartments-stats { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; display: flex; gap: 32px; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); }
+#apartments-tab .apartments-stats .stat-label,
+#stanford-apartments-tab .apartments-stats .stat-label { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+#apartments-tab .apartments-stats .stat-value,
+#stanford-apartments-tab .apartments-stats .stat-value { font-size: 1.5rem; font-weight: 700; color: #006aff; }
+#apartments-tab .apartments-grid,
+#stanford-apartments-tab .apartments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+#apartments-tab .apartment-card,
+#stanford-apartments-tab .apartment-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; padding: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); transition: box-shadow 0.2s, transform 0.2s; }
+#apartments-tab .apartment-card:hover,
+#stanford-apartments-tab .apartment-card:hover { box-shadow: 0 8px 24px rgba(0, 106, 255, 0.12); transform: translateY(-2px); }
+#apartments-tab .apt-photo-placeholder,
+#stanford-apartments-tab .apt-photo-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%); color: #9ca3af; gap: 8px; }
+#apartments-tab .apt-photo-wrap,
+#stanford-apartments-tab .apt-photo-wrap { height: 200px; overflow: hidden; background: #e5e7eb; }
+#apartments-tab .apt-thumbnail-link,
+#stanford-apartments-tab .apt-thumbnail-link { display: block; height: 100%; text-decoration: none; }
+#apartments-tab .apt-thumbnail,
+#stanford-apartments-tab .apt-thumbnail { width: 100%; height: 200px; object-fit: cover; vertical-align: top; }
+#apartments-tab .apt-map-wrap,
+#stanford-apartments-tab .apt-map-wrap { position: relative; height: 200px; overflow: hidden; background: #e5e7eb; }
+#apartments-tab .apt-map-iframe,
+#stanford-apartments-tab .apt-map-iframe { width: 100%; height: 100%; border: 0; pointer-events: none; }
+#apartments-tab .apt-map-label,
+#stanford-apartments-tab .apt-map-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); color: #fff; font-size: 0.8125rem; font-weight: 500; }
+#apartments-tab .apt-location-placeholder .apt-photo-sub,
+#stanford-apartments-tab .apt-location-placeholder .apt-photo-sub { font-size: 0.75rem; opacity: 0.85; }
+#apartments-tab .apt-map-link,
+#stanford-apartments-tab .apt-map-link { margin-top: 6px; font-size: 0.75rem; color: #006aff; text-decoration: none; font-weight: 500; }
+#apartments-tab .apt-map-link:hover,
+#stanford-apartments-tab .apt-map-link:hover { text-decoration: underline; }
+#apartments-tab .apt-photo-icon,
+#stanford-apartments-tab .apt-photo-icon { font-size: 48px; opacity: 0.7; }
+#apartments-tab .apt-photo-text,
+#stanford-apartments-tab .apt-photo-text { font-size: 0.8125rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+#apartments-tab .apartment-card .deal-badge,
+#stanford-apartments-tab .apartment-card .deal-badge { top: 12px; right: 12px; border-radius: 6px; font-size: 0.8125rem; font-weight: 700; padding: 6px 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
+#apartments-tab .apartment-card .apt-header,
+#stanford-apartments-tab .apartment-card .apt-header { padding: 16px 20px 12px; margin-bottom: 0; }
+#apartments-tab .apartment-card .apt-title,
+#stanford-apartments-tab .apartment-card .apt-title { font-size: 1rem; font-weight: 600; color: #1a1a1a; line-height: 1.4; padding-right: 70px; margin: 0 0 8px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#apartments-tab .apartment-card .apt-price,
+#stanford-apartments-tab .apartment-card .apt-price { font-size: 1.5rem; font-weight: 700; color: #006aff; margin: 0; }
+#apartments-tab .apartment-card .apt-details,
+#stanford-apartments-tab .apartment-card .apt-details { padding: 0 20px 12px; margin-bottom: 0; gap: 10px; flex-wrap: wrap; }
+#apartments-tab .apartment-card .apt-detail,
+#stanford-apartments-tab .apartment-card .apt-detail { font-size: 0.8125rem; color: #6b7280; }
+#apartments-tab .apartment-card .apt-metrics,
+#stanford-apartments-tab .apartment-card .apt-metrics { margin: 0 20px 16px; padding: 12px 14px; background: #f8fafc; border-radius: 6px; border: 1px solid #e5e7eb; }
+#apartments-tab .apartment-card .apt-metrics .metric-label,
+#stanford-apartments-tab .apartment-card .apt-metrics .metric-label { color: #6b7280; font-size: 0.6875rem; }
+#apartments-tab .apartment-card .apt-metrics .metric-value,
+#stanford-apartments-tab .apartment-card .apt-metrics .metric-value { font-size: 0.9375rem; color: #1a1a1a; }
+#apartments-tab .apartment-card .apt-metrics .metric-value.positive,
+#stanford-apartments-tab .apartment-card .apt-metrics .metric-value.positive { color: #0d9488; }
+#apartments-tab .apartment-card .apt-metrics .metric-value.negative,
+#stanford-apartments-tab .apartment-card .apt-metrics .metric-value.negative { color: #dc2626; }
+#apartments-tab .apartment-card .apt-metrics .metric-value.neutral,
+#stanford-apartments-tab .apartment-card .apt-metrics .metric-value.neutral { color: #6b7280; }
+#apartments-tab .apartment-card .apt-analysis,
+#stanford-apartments-tab .apartment-card .apt-analysis { margin: 0 20px 16px; padding: 12px 14px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #006aff; font-size: 0.8125rem; line-height: 1.5; color: #374151; font-style: normal; }
+#apartments-tab .apartment-card .apt-link,
+#stanford-apartments-tab .apartment-card .apt-link { display: block; margin: 0 20px 20px; padding: 12px 20px; background: #006aff; color: #fff; text-align: center; border-radius: 6px; font-weight: 600; font-size: 0.9375rem; text-decoration: none; transition: background 0.2s; }
+#apartments-tab .apartment-card .apt-link:hover,
+#stanford-apartments-tab .apartment-card .apt-link:hover { background: #0052cc; }
 #apartments-tab .no-apartments,
-#apartments-tab .error-message {
-  color: #6b7280;
-  padding: 48px 24px;
-}
-#apartments-tab .error-message {
-  color: #dc2626;
-}
+#apartments-tab .error-message,
+#stanford-apartments-tab .no-apartments,
+#stanford-apartments-tab .error-message { color: #6b7280; padding: 48px 24px; }
+#apartments-tab .error-message,
+#stanford-apartments-tab .error-message { color: #dc2626; }

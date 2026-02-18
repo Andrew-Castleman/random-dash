@@ -35,6 +35,10 @@ except ImportError:
 
 CL_LISTING_BASE = "https://sfbay.craigslist.org"
 CL_SEARCH_URL = f"{CL_LISTING_BASE}/search/sfc/apa"
+# Peninsula (Palo Alto, Menlo Park, Stanford area) for student housing
+CL_SEARCH_URL_PEN = f"{CL_LISTING_BASE}/search/pen/apa"
+STANFORD_MIN_PRICE = 1500
+STANFORD_MAX_PRICE = 6500
 
 # Claude client (optional; falls back to score-only when missing)
 try:
@@ -178,6 +182,12 @@ def debug_first_listing():
     print(listing.prettify())
 
 
+def _area_from_search_url(search_url: str) -> str:
+    """Extract area code from search URL e.g. .../search/pen/apa -> pen."""
+    m = re.search(r"/search/([a-z]+)/apa", search_url or "")
+    return m.group(1) if m else "sfc"
+
+
 def scrape_sf_apartments(max_listings: int = 50) -> list[dict[str, Any]]:
     """Fetch SF apartments in price range. Tries JSON API, then HTML; returns sample on failure."""
     apartments = scrape_via_json_api()
@@ -194,11 +204,36 @@ def scrape_sf_apartments(max_listings: int = 50) -> list[dict[str, Any]]:
     return get_sample_apartments()
 
 
-def scrape_via_json_api() -> list[dict[str, Any]]:
+def scrape_stanford_apartments(max_listings: int = 50) -> list[dict[str, Any]]:
+    """Fetch peninsula (Stanford/Palo Alto/Menlo Park) apartments. Student-friendly price range."""
+    apartments = scrape_via_json_api(CL_SEARCH_URL_PEN, STANFORD_MIN_PRICE, STANFORD_MAX_PRICE)
+    if apartments:
+        logger.info("Scraped %s peninsula listings via JSON API", len(apartments))
+        return apartments[:max_listings]
+
+    apartments = scrape_via_html(
+        max_listings, search_url=CL_SEARCH_URL_PEN, min_price=STANFORD_MIN_PRICE, max_price=STANFORD_MAX_PRICE
+    )
+    if apartments:
+        logger.info("Scraped %s peninsula listings via HTML", len(apartments))
+        return apartments[:max_listings]
+
+    logger.warning("Stanford area scrape failed; returning sample data")
+    return get_sample_apartments_stanford()
+
+
+def scrape_via_json_api(
+    search_url: Optional[str] = None,
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+) -> list[dict[str, Any]]:
     """Try Craigslist JSON-style response. Returns [] when not available."""
+    search_url = search_url or CL_SEARCH_URL
+    min_price = min_price if min_price is not None else MIN_PRICE
+    max_price = max_price if max_price is not None else MAX_PRICE
     apartments = []
     try:
-        json_url = f"{CL_SEARCH_URL}?format=json&min_price={MIN_PRICE}&max_price={MAX_PRICE}"
+        json_url = f"{search_url}?format=json&min_price={min_price}&max_price={max_price}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
             "Accept": "application/json",
@@ -221,14 +256,15 @@ def scrape_via_json_api() -> list[dict[str, Any]]:
                     if not price:
                         continue
                     price = int(price)
-                    if not (MIN_PRICE <= price <= MAX_PRICE):
+                    if not (min_price <= price <= max_price):
                         continue
                     headline = item.get("headline", item.get("title", "Apartment"))
+                    default_hood = "San Francisco" if "sfc" in search_url else "Palo Alto"
                     apartments.append({
                         "title": headline,
                         "url": item.get("url", ""),
                         "price": price,
-                        "neighborhood": item.get("neighborhood", item.get("location", "San Francisco")),
+                        "neighborhood": item.get("neighborhood", item.get("location", default_hood)),
                         "bedrooms": item.get("bedrooms") if item.get("bedrooms") is not None else extract_bedrooms(str(headline)),
                         "bathrooms": item.get("bathrooms") if item.get("bathrooms") is not None else extract_bathrooms(str(headline)),
                         "sqft": item.get("sqft") if item.get("sqft") is not None else extract_sqft(str(headline)),
@@ -287,11 +323,13 @@ def _extract_thumbnail_from_listing(listing):
     return None
 
 
-def scrape_via_ldjson(html_text):
+def scrape_via_ldjson(html_text, min_price: Optional[int] = None, max_price: Optional[int] = None):
     """
     Parse Craigslist JSON-LD from script#ld_searchpage_results.
     Returns list of apartment dicts in price range, or [] if not found/invalid.
     """
+    min_price = min_price if min_price is not None else MIN_PRICE
+    max_price = max_price if max_price is not None else MAX_PRICE
     apartments = []
     try:
         soup = BeautifulSoup(html_text, "html.parser")
@@ -335,7 +373,7 @@ def scrape_via_ldjson(html_text):
                         price = None
                 if price is None and name:
                     price = extract_price_from_text(name)
-                if not price or not (MIN_PRICE <= price <= MAX_PRICE):
+                if not price or not (min_price <= price <= max_price):
                     continue
                 bedrooms = item.get("numberOfRooms")
                 if bedrooms is not None:
@@ -420,10 +458,19 @@ def scrape_via_ldjson(html_text):
     return apartments
 
 
-def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
+def scrape_via_html(
+    max_listings: int = 50,
+    search_url: Optional[str] = None,
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+) -> list[dict[str, Any]]:
     """Scrape Craigslist HTML search page; try JSON-LD first, then list/link parsing."""
+    search_url = search_url or CL_SEARCH_URL
+    min_price = min_price if min_price is not None else MIN_PRICE
+    max_price = max_price if max_price is not None else MAX_PRICE
+    area = _area_from_search_url(search_url)
     apartments = []
-    base_url = f"{CL_SEARCH_URL}?min_price={MIN_PRICE}&max_price={MAX_PRICE}&availabilityMode=0"
+    base_url = f"{search_url}?min_price={min_price}&max_price={max_price}&availabilityMode=0"
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -438,7 +485,7 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
                 pass
         response.raise_for_status()
 
-        apartments = scrape_via_ldjson(response.text)
+        apartments = scrape_via_ldjson(response.text, min_price=min_price, max_price=max_price)
         if len(apartments) >= 20:
             return apartments[:max_listings]
         if apartments:
@@ -446,7 +493,7 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
 
         soup = BeautifulSoup(response.text, "html.parser")
         all_links = soup.find_all("a", href=True)
-        listing_links = [a for a in all_links if "/sfc/apa/" in a.get("href", "") or "/apa/" in a.get("href", "")]
+        listing_links = [a for a in all_links if f"/{area}/apa/" in a.get("href", "") or "/apa/" in a.get("href", "")]
 
         listings = (
             soup.find_all("li", class_="cl-search-result")
@@ -460,14 +507,14 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
 
         if not listings:
             logger.debug("No list items; trying link-based parsing")
-            # Any link to a listing page: /sfc/apa/.../1234567890.html or /sfc/apa/d/...
-            apt_links = soup.select('a[href*="/sfc/apa/"]')
+            # Any link to a listing page: /pen/apa/... or /sfc/apa/...
+            apt_links = soup.select(f'a[href*="/{area}/apa/"]')
             # Dedupe by href (same listing can appear multiple times)
             seen = set()
             unique_links = []
             for a in apt_links:
                 h = a.get("href", "")
-                if h and h not in seen and re.search(r"/sfc/apa/(?:d/)?[^/]+/\d+\.html", h):
+                if h and h not in seen and re.search(r"/" + re.escape(area) + r"/apa/(?:d/)?[^/]+/\d+\.html", h):
                     seen.add(h)
                     unique_links.append(a)
             logger.debug("Unique listing links=%s", len(unique_links))
@@ -489,12 +536,12 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
                                 m = re.search(r"\$?([\d,]+)", (price_elem.get_text() or ""))
                                 if m:
                                     price = int(m.group(1).replace(",", ""))
-                        if not price or not (MIN_PRICE <= price <= MAX_PRICE):
+                        if not price or not (min_price <= price <= max_price):
                             continue
                         # Neighborhood often at end of link text: "Title$2,695 noe valley"
                         parts = raw_title.rsplit("$", 1)
                         title = parts[0].strip() if len(parts) > 1 else raw_title
-                        neighborhood = "San Francisco"
+                        neighborhood = "Palo Alto" if area == "pen" else "San Francisco"
                         if parent:
                             hood_span = parent.find(class_=re.compile(r"hood|supertitle|meta|location", re.I))
                             if hood_span:
@@ -530,15 +577,15 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
             try:
                 apt = parse_listing(listing)
                 if apt and apt.get("price"):
-                    if MIN_PRICE <= apt["price"] <= MAX_PRICE:
+                    if min_price <= apt["price"] <= max_price:
                         apartments.append(apt)
                     else:
-                        logger.debug("Price $%s outside range %s-%s", apt["price"], MIN_PRICE, MAX_PRICE)
+                        logger.debug("Price $%s outside range %s-%s", apt["price"], min_price, max_price)
             except Exception as e:
                 logger.debug("Error parsing listing: %s", e)
 
         # If list items didn't parse (wrong DOM), fall back to link-based parsing
-        detail_links = [a for a in listing_links if re.search(r"/sfc/apa/.+\d+\.html", a.get("href", ""))]
+        detail_links = [a for a in listing_links if re.search(r"/" + re.escape(area) + r"/apa/.+\d+\.html", a.get("href", ""))]
         if not apartments and detail_links:
             logger.debug("0 from list items; link fallback (%s links)", len(detail_links))
             seen = set()
@@ -562,11 +609,11 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
                             m = re.search(r"\$?([\d,]+)", (price_elem.get_text() or ""))
                             if m:
                                 price = int(m.group(1).replace(",", ""))
-                    if not price or not (MIN_PRICE <= price <= MAX_PRICE):
+                    if not price or not (min_price <= price <= max_price):
                         continue
                     parts = raw_title.rsplit("$", 1)
                     title = (parts[0].strip() if len(parts) > 1 else raw_title) or raw_title[:80]
-                    neighborhood = "San Francisco"
+                    neighborhood = "Palo Alto" if area == "pen" else "San Francisco"
                     if parent:
                         hood_span = parent.find(class_=re.compile(r"hood|supertitle|meta|location", re.I))
                         if hood_span:
@@ -875,6 +922,24 @@ def get_neighborhood_market_rates():
     }
 
 
+def get_stanford_market_rates():
+    """Peninsula / Stanford area market rates (Palo Alto, Menlo Park, etc.) for student housing."""
+    return {
+        "palo alto": {"studio": 2200, "1br": 2800, "2br": 3800, "3br": 4800},
+        "palo-alto": {"studio": 2200, "1br": 2800, "2br": 3800, "3br": 4800},
+        "menlo park": {"studio": 2100, "1br": 2700, "2br": 3600, "3br": 4500},
+        "menlo-park": {"studio": 2100, "1br": 2700, "2br": 3600, "3br": 4500},
+        "redwood city": {"studio": 1900, "1br": 2500, "2br": 3300, "3br": 4200},
+        "redwood-city": {"studio": 1900, "1br": 2500, "2br": 3300, "3br": 4200},
+        "mountain view": {"studio": 2100, "1br": 2700, "2br": 3500, "3br": 4400},
+        "mountain-view": {"studio": 2100, "1br": 2700, "2br": 3500, "3br": 4400},
+        "stanford": {"studio": 2300, "1br": 2900, "2br": 3900, "3br": 4900},
+        "east palo alto": {"studio": 1700, "1br": 2200, "2br": 2900, "3br": 3700},
+        "east-palo-alto": {"studio": 1700, "1br": 2200, "2br": 2900, "3br": 3700},
+        "default": {"studio": 2100, "1br": 2700, "2br": 3600, "3br": 4500},
+    }
+
+
 # Only run Claude AI summary for the top N by market discount (saves API cost)
 AI_ANALYSIS_TOP_N = 20
 # Parallel workers for scoring pass and for Claude API calls
@@ -951,7 +1016,8 @@ def _compute_discount_and_score(apt, market_rates):
         apt["deal_analysis"] = "Bedroom count not specified — difficult to evaluate value."
         apt["discount_pct"] = None
         return False
-    hood_key = apt["neighborhood"].lower().strip().replace(" ", "-")
+    neighborhood = apt.get("neighborhood") or ""
+    hood_key = neighborhood.lower().strip().replace(" ", "-") if isinstance(neighborhood, str) else "default"
     if hood_key not in market_rates:
         hood_key = hood_key.replace("-", " ")
     hood_rates = market_rates.get(hood_key, market_rates["default"])
@@ -1050,15 +1116,15 @@ ANALYSIS: [2-3 sentences: brief overview of the unit, then specific reasons it's
         apt["deal_score"] = apt.get("deal_score", 50)
 
 
-def analyze_apartment_deals(apartments, max_return=None):
+def analyze_apartment_deals(apartments, max_return=None, get_market_rates=None):
     """
     Compute discount for all; run Claude only for top 20 among the listings we will return.
-    If max_return is set (e.g. 200), trim to top max_return by score before any API calls,
-    so we never call Claude for listings that won't be published.
+    If max_return is set (e.g. 200), trim to top max_return by score before any API calls.
+    get_market_rates: optional callable() -> dict; if None, uses SF neighborhood rates.
     """
     if not apartments:
         return []
-    market_rates = get_neighborhood_market_rates()
+    market_rates = (get_market_rates or get_neighborhood_market_rates)()
 
     # First pass (parallel): set discount_pct and simple score for everyone (no API calls)
     def _score_one(args):
@@ -1104,14 +1170,15 @@ def analyze_apartment_deals(apartments, max_return=None):
     return valid
 
 
-def analyze_apartment_deals_cached(apartments: list[dict], max_return: Optional[int] = None) -> list[dict]:
+def analyze_apartment_deals_cached(
+    apartments: list[dict], max_return: Optional[int] = None, get_market_rates=None
+) -> list[dict]:
     """
     Like analyze_apartment_deals, but use a cache keyed by listing URL so we only call Claude
     for listings that are new or whose cache entry has expired. Reduces API cost on refresh/page load.
     """
     if not apartments:
         return []
-    now = time.time()
     uncached = []
     for apt in apartments:
         cached = _get_cached_analysis(apt.get("url"))
@@ -1123,7 +1190,7 @@ def analyze_apartment_deals_cached(apartments: list[dict], max_return: Optional[
             uncached.append(apt)
 
     if uncached:
-        analyzed = analyze_apartment_deals(uncached, max_return=None)
+        analyzed = analyze_apartment_deals(uncached, max_return=None, get_market_rates=get_market_rates)
         for apt in analyzed:
             _set_cached_analysis(
                 apt.get("url"),
@@ -1186,6 +1253,57 @@ def get_sample_apartments():
             "price_per_sqft": 4.21,
             "price_per_bedroom": 2950,
             "posted_date": "2026-02-14",
+            "deal_score": None,
+            "deal_analysis": None,
+            "discount_pct": None,
+        },
+    ]
+
+
+def get_sample_apartments_stanford():
+    """Sample peninsula listings when Stanford area scrape fails."""
+    return [
+        {
+            "title": "Studio near Stanford - Walk to Campus",
+            "url": f"{CL_LISTING_BASE}/pen/apa/",
+            "price": 1950,
+            "neighborhood": "Palo Alto",
+            "bedrooms": 0,
+            "bathrooms": 1.0,
+            "sqft": 450,
+            "price_per_sqft": 4.33,
+            "price_per_bedroom": None,
+            "posted_date": None,
+            "deal_score": None,
+            "deal_analysis": None,
+            "discount_pct": None,
+        },
+        {
+            "title": "1BR in Menlo Park - Near Caltrain",
+            "url": f"{CL_LISTING_BASE}/pen/apa/",
+            "price": 2400,
+            "neighborhood": "Menlo Park",
+            "bedrooms": 1,
+            "bathrooms": 1.0,
+            "sqft": 650,
+            "price_per_sqft": 3.69,
+            "price_per_bedroom": 2400,
+            "posted_date": None,
+            "deal_score": None,
+            "deal_analysis": None,
+            "discount_pct": None,
+        },
+        {
+            "title": "2BR Shared - Redwood City, Student Friendly",
+            "url": f"{CL_LISTING_BASE}/pen/apa/",
+            "price": 3200,
+            "neighborhood": "Redwood City",
+            "bedrooms": 2,
+            "bathrooms": 2.0,
+            "sqft": 950,
+            "price_per_sqft": 3.37,
+            "price_per_bedroom": 1600,
+            "posted_date": None,
             "deal_score": None,
             "deal_analysis": None,
             "discount_pct": None,

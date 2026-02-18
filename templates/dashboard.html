@@ -34,6 +34,7 @@
     <div class="dashboard-tabs">
       <button type="button" class="tab-btn active" data-tab="markets" aria-selected="true">📊 Markets</button>
       <button type="button" class="tab-btn" data-tab="apartments" aria-selected="false">🏠 SF Apartments</button>
+      <button type="button" class="tab-btn" data-tab="stanford-apartments" aria-selected="false">🎓 Stanford Area</button>
     </div>
 
     <div class="tab-content active" id="markets-tab">
@@ -157,6 +158,57 @@
           </div>
         </div>
         <div id="apartmentsList" class="apartments-grid"></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="stanford-apartments-tab">
+      <div class="apartments-container">
+        <div class="apartments-header">
+          <div>
+            <h2 class="apartments-title">🎓 Stanford Area Apartments</h2>
+            <p class="range-subtitle">Palo Alto, Menlo Park, Redwood City — $1,500 – $6,500/month (student-friendly, incl. 2BR)</p>
+          </div>
+          <button type="button" id="refreshStanfordApartments" class="refresh-btn">🔄 Refresh Listings</button>
+        </div>
+        <div class="apartments-filters">
+          <select id="stanfordNeighborhoodFilter" aria-label="Filter by neighborhood">
+            <option value="all">All Areas</option>
+            <option value="palo-alto">Palo Alto</option>
+            <option value="menlo-park">Menlo Park</option>
+            <option value="redwood-city">Redwood City</option>
+            <option value="mountain-view">Mountain View</option>
+            <option value="stanford">Stanford</option>
+            <option value="east-palo-alto">East Palo Alto</option>
+          </select>
+          <select id="stanfordBedroomFilter" aria-label="Filter by bedrooms">
+            <option value="all">All Bedrooms</option>
+            <option value="studio">Studio</option>
+            <option value="1">1 Bedroom</option>
+            <option value="2">2 Bedrooms</option>
+            <option value="3">3+ Bedrooms</option>
+          </select>
+          <select id="stanfordSortBy" aria-label="Sort by">
+            <option value="best-deal">Best Deal Score</option>
+            <option value="price-low">Lowest Price</option>
+            <option value="price-sqft">Price per Sqft</option>
+            <option value="newest">Newest First</option>
+          </select>
+        </div>
+        <div class="apartments-stats">
+          <div class="stat">
+            <span class="stat-label">Total Listings</span>
+            <span class="stat-value" id="stanfordTotalListings">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Excellent Deals</span>
+            <span class="stat-value" id="stanfordExcellentDeals">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Average Price</span>
+            <span class="stat-value" id="stanfordAvgPrice">$0</span>
+          </div>
+        </div>
+        <div id="stanfordApartmentsList" class="apartments-grid"></div>
       </div>
     </div>
   </div>
