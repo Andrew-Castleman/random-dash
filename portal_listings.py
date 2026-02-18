@@ -35,8 +35,11 @@ _cache_lock = threading.Lock()
 _last_request: dict[str, float] = {}
 _request_lock = threading.Lock()
 
-# Initialize: reset counter if new month
-reset_monthly_api_counter_if_needed()
+# Initialize: reset counter if new month (no-op if DB/table not ready)
+try:
+    reset_monthly_api_counter_if_needed()
+except Exception as e:
+    logger.warning("Portal listings: could not reset monthly API counter at startup: %s", e)
 
 
 def _load_persistent_cache() -> None:

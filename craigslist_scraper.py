@@ -1034,7 +1034,7 @@ def get_stanford_market_rates():
 
 
 # Only run Claude AI summary for the top N by market discount (saves API cost)
-AI_ANALYSIS_TOP_N = 20
+AI_ANALYSIS_TOP_N = 25
 # Parallel workers for scoring pass and for Claude API calls
 SCORE_MAX_WORKERS = 16
 AI_MAX_WORKERS = 10
@@ -1209,14 +1209,15 @@ ANALYSIS: [2-3 sentences: brief overview of the unit, then specific reasons it's
         apt["deal_score"] = apt.get("deal_score", 50)
 
 
-def analyze_apartment_deals(apartments, max_return=None, get_market_rates=None):
+def analyze_apartment_deals(apartments, max_analyze=None, get_market_rates=None):
     """
-    Compute discount for all; run Claude only for top 20 among the listings we will return.
-    If max_return is set (e.g. 200), trim to top max_return by score before any API calls.
+    Compute discount and simple score for all; run Claude only for top max_analyze (default 25).
+    Returns full list sorted by deal_score. No cap on return size — full list for display.
     get_market_rates: optional callable() -> dict; if None, uses SF neighborhood rates.
     """
     if not apartments:
         return []
+    top_n = max_analyze if max_analyze is not None else AI_ANALYSIS_TOP_N
     market_rates = (get_market_rates or get_neighborhood_market_rates)()
 
     # First pass (parallel): set discount_pct and simple score for everyone (no API calls)
@@ -1228,16 +1229,11 @@ def analyze_apartment_deals(apartments, max_return=None, get_market_rates=None):
         scored = list(executor.map(_score_one, [(apt, market_rates) for apt in apartments]))
     valid = [apt for apt, ok in scored if ok]
 
-    # Sort by deal_score and trim to max_return before any expensive API calls
-    valid.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
-    if max_return is not None and len(valid) > max_return:
-        valid = valid[:max_return]
+    # Sort by deal_score, then by discount for AI selection
+    valid.sort(key=lambda x: (x.get("deal_score", 0), (x.get("discount_pct") or -999)), reverse=True)
+    top_for_ai = valid[:top_n]
 
-    # Among the ones we'll return, take top N by discount for Claude
-    valid.sort(key=lambda x: (x.get("discount_pct") or -999), reverse=True)
-    top_for_ai = valid[:AI_ANALYSIS_TOP_N]
-
-    # Build (apt, market_rate) for each; then run Claude in parallel
+    # Run Claude only for top N (cost control)
     def _market_rate_for(apt):
         hood_key = apt["neighborhood"].lower().strip().replace(" ", "-")
         if hood_key not in market_rates:
@@ -1255,23 +1251,25 @@ def analyze_apartment_deals(apartments, max_return=None, get_market_rates=None):
         list(executor.map(_call_claude_task, tasks))
 
     # Rest get a short placeholder (no AI call)
-    for apt in valid[AI_ANALYSIS_TOP_N:]:
-        apt["deal_analysis"] = "Not in top 20 — no AI summary. See price vs market % above."
+    for apt in valid[top_n:]:
+        apt["deal_analysis"] = f"Not in top {top_n} — no AI summary. See price vs market % above."
 
-    # Final order by deal_score (AI-scored top 20 first, then rest by simple score)
+    # Final order by deal_score
     valid.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
     return valid
 
 
 def analyze_apartment_deals_cached(
-    apartments: list[dict], max_return: Optional[int] = None, get_market_rates=None
+    apartments: list[dict], max_analyze: Optional[int] = None, get_market_rates=None
 ) -> list[dict]:
     """
     Like analyze_apartment_deals, but use a cache keyed by listing URL so we only call Claude
-    for listings that are new or whose cache entry has expired. Reduces API cost on refresh/page load.
+    for listings that are new or whose cache entry has expired. Runs Claude only for top max_analyze
+    (default 25) among uncached; returns full list. Caching limits full-refresh cost.
     """
     if not apartments:
         return []
+    top_n = max_analyze if max_analyze is not None else AI_ANALYSIS_TOP_N
     uncached = []
     for apt in apartments:
         cached = _get_cached_analysis(apt.get("url"))
@@ -1283,7 +1281,7 @@ def analyze_apartment_deals_cached(
             uncached.append(apt)
 
     if uncached:
-        analyzed = analyze_apartment_deals(uncached, max_return=None, get_market_rates=get_market_rates)
+        analyzed = analyze_apartment_deals(uncached, max_analyze=top_n, get_market_rates=get_market_rates)
         for apt in analyzed:
             _set_cached_analysis(
                 apt.get("url"),
@@ -1291,14 +1289,12 @@ def analyze_apartment_deals_cached(
                 apt.get("deal_analysis"),
                 apt.get("discount_pct"),
             )
-        logger.info("Analyzed %s uncached listings (Claude used for top 20 of those); %s served from cache", len(uncached), len(apartments) - len(uncached))
+        logger.info("Analyzed %s uncached listings (Claude used for top %s of those); %s served from cache", len(uncached), top_n, len(apartments) - len(uncached))
     else:
         logger.info("All %s listings served from cache (no Claude calls)", len(apartments))
 
-    # Full list: cached entries already updated in place; uncached were mutated by analyze_apartment_deals
+    # Full list: no cap; cached entries already updated in place; uncached were mutated by analyze_apartment_deals
     apartments_sorted = sorted(apartments, key=lambda x: (x.get("deal_score") is None, -(x.get("deal_score") or 0)))
-    if max_return is not None:
-        apartments_sorted = apartments_sorted[:max_return]
     return apartments_sorted
 
 

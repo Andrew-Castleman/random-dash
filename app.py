@@ -26,6 +26,10 @@ from flask_cors import CORS
 import market_data as md
 import agent_brain as brain
 from database import init_db, save_portfolio_snapshot
+
+# Ensure DB and api_call_counter table exist before portal_listings (which uses them on import)
+init_db()
+
 from economic_calendar import get_economic_calendar
 from craigslist_scraper import (
     scrape_sf_apartments,
@@ -430,7 +434,11 @@ def _register_debug_routes():
         return jsonify(debug_info)
 
 
-MAX_APARTMENTS_RETURN = 200
+# Portal: full list per location (same API call count: 1 SF + 2 Stanford)
+PORTAL_SF_MAX = 500
+PORTAL_STANFORD_MAX = 1000
+# Alternate (Craigslist): AI scoring only for top N to limit cost; full list returned
+AI_TOP_N_PER_TAB = 25
 SCRAPE_POOL_SIZE = 400
 
 # Refresh rate limit: per-IP, generous but prevents credit abuse
@@ -472,7 +480,7 @@ def _check_refresh_rate_limit(ip):
 def get_apartments_portal():
     """Portal (API) listings for SF. Cached; rate-limited. Same response shape as get_apartments."""
     try:
-        apartments = get_portal_listings_sf(min_price=2000, max_price=5000, max_return=MAX_APARTMENTS_RETURN)
+        apartments = get_portal_listings_sf(min_price=2000, max_price=5000, max_return=PORTAL_SF_MAX)
         total = len(apartments)
         excellent = len([a for a in apartments if (a.get("deal_score") or 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
@@ -490,7 +498,7 @@ def get_apartments_portal():
 def get_apartments_portal_stanford():
     """Portal (API) listings for Stanford area. Cached; rate-limited."""
     try:
-        apartments = get_portal_listings_stanford(min_price=1500, max_price=6500, max_return=MAX_APARTMENTS_RETURN)
+        apartments = get_portal_listings_stanford(min_price=1500, max_price=6500, max_return=PORTAL_STANFORD_MAX)
         total = len(apartments)
         excellent = len([a for a in apartments if (a.get("deal_score") or 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
@@ -509,7 +517,7 @@ def get_apartments():
     """Alternate source: SF apartments in $2K-$5K range. Same response shape."""
     try:
         apartments = scrape_sf_apartments(max_listings=SCRAPE_POOL_SIZE)
-        apartments = analyze_apartment_deals_cached(apartments, max_return=MAX_APARTMENTS_RETURN)
+        apartments = analyze_apartment_deals_cached(apartments, max_analyze=AI_TOP_N_PER_TAB)
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
@@ -545,7 +553,7 @@ def refresh_apartments():
         )
     try:
         apartments = scrape_sf_apartments(max_listings=SCRAPE_POOL_SIZE)
-        apartments = analyze_apartment_deals_cached(apartments, max_return=MAX_APARTMENTS_RETURN)
+        apartments = analyze_apartment_deals_cached(apartments, max_analyze=AI_TOP_N_PER_TAB)
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
@@ -569,7 +577,7 @@ def get_stanford_apartments():
     try:
         apartments = scrape_stanford_apartments(max_listings=SCRAPE_POOL_SIZE)
         apartments = analyze_apartment_deals_cached(
-            apartments, max_return=MAX_APARTMENTS_RETURN, get_market_rates=get_stanford_market_rates
+            apartments, max_analyze=AI_TOP_N_PER_TAB, get_market_rates=get_stanford_market_rates
         )
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
@@ -607,7 +615,7 @@ def refresh_stanford_apartments():
     try:
         apartments = scrape_stanford_apartments(max_listings=SCRAPE_POOL_SIZE)
         apartments = analyze_apartment_deals_cached(
-            apartments, max_return=MAX_APARTMENTS_RETURN, get_market_rates=get_stanford_market_rates
+            apartments, max_analyze=AI_TOP_N_PER_TAB, get_market_rates=get_stanford_market_rates
         )
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
