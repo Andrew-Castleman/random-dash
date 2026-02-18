@@ -587,10 +587,35 @@
     return list;
   }
 
+  function populateNeighborhoodFilter(selectId, apartments) {
+    var select = document.getElementById(selectId);
+    if (!select || !apartments || !apartments.length) return;
+    var neighborhoods = {};
+    apartments.forEach(function (apt) {
+      var hood = apt.neighborhood || "";
+      if (hood && hood !== "Unknown") {
+        neighborhoods[hood] = (neighborhoods[hood] || 0) + 1;
+      }
+    });
+    var sorted = Object.keys(neighborhoods).sort(function (a, b) { return neighborhoods[b] - neighborhoods[a]; });
+    if (sorted.length > 0) {
+      select.innerHTML = "<option value=\"all\">All Areas</option>";
+      sorted.forEach(function (hood) {
+        var count = neighborhoods[hood];
+        var slug = neighborhoodSlug(hood);
+        var option = document.createElement("option");
+        option.value = slug;
+        option.textContent = hood + " (" + count + ")";
+        select.appendChild(option);
+      });
+    }
+  }
+
   function renderApartments(apartments) {
     var container = document.getElementById("apartmentsList");
     if (!container) return;
     if (apartments && apartments.length) apartmentsData = apartments;
+    populateNeighborhoodFilter("neighborhoodFilter", apartmentsData);
     var list = getFilteredAndSortedApartments();
     container.innerHTML = "";
 
@@ -775,7 +800,8 @@
     if (hoodVal !== "all") {
       list = list.filter(function (apt) {
         var slug = neighborhoodSlug(apt.neighborhood);
-        return slug === hoodVal || slug.indexOf(hoodVal) !== -1;
+        var hoodLower = (apt.neighborhood || "").toLowerCase();
+        return slug === hoodVal || slug.indexOf(hoodVal) !== -1 || hoodLower.indexOf(hoodVal.replace(/-/g, " ")) !== -1;
       });
     }
     if (bedVal !== "all") {
@@ -797,6 +823,7 @@
     var container = document.getElementById("stanfordApartmentsList");
     if (!container) return;
     if (apartments && apartments.length) stanfordApartmentsData = apartments;
+    populateNeighborhoodFilter("stanfordNeighborhoodFilter", stanfordApartmentsData);
     var list = getFilteredAndSortedStanfordApartments();
     container.innerHTML = "";
     if (!list.length) {

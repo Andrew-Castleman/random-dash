@@ -135,6 +135,73 @@ def _is_publicly_listed(item: dict[str, Any]) -> bool:
     return True
 
 
+def _infer_neighborhood(address: str, lat: float, lon: float, city: str) -> str:
+    """
+    Infer SF neighborhood from address/coordinates when API only returns 'San Francisco'.
+    Uses zip codes and coordinate-based area mapping.
+    """
+    if city and city.lower() not in ("san francisco", "sf"):
+        return city
+    
+    # SF zip code to neighborhood mapping (common ones)
+    zip_to_hood = {
+        "94014": "Daly City / Outer Mission",  # Border area
+        "94102": "Tenderloin", "94103": "SoMa", "94104": "Financial District",
+        "94105": "SoMa", "94107": "Potrero Hill", "94108": "Chinatown",
+        "94109": "Nob Hill", "94110": "Mission", "94111": "Financial District",
+        "94112": "Ingleside", "94114": "Castro", "94115": "Western Addition",
+        "94116": "Sunset", "94117": "Haight-Ashbury", "94118": "Richmond",
+        "94121": "Outer Richmond", "94122": "Sunset", "94123": "Marina",
+        "94124": "Bayview", "94127": "West Portal", "94129": "Presidio",
+        "94130": "Treasure Island", "94131": "Noe Valley", "94132": "Parkmerced",
+        "94133": "North Beach", "94134": "Visitacion Valley",
+    }
+    
+    # Extract zip from address
+    import re
+    zip_match = re.search(r'\b94\d{3}\b', address or "")
+    if zip_match:
+        zip_code = zip_match.group()
+        if zip_code in zip_to_hood:
+            return zip_to_hood[zip_code]
+    
+    # Coordinate-based area mapping (rough boundaries)
+    if lat and lon:
+        lat_f, lon_f = float(lat), float(lon)
+        # North SF (Marina, Pacific Heights, Russian Hill)
+        if lat_f > 37.79 and lon_f > -122.45:
+            return "Marina / Pacific Heights"
+        # Central/North (Nob Hill, Russian Hill, North Beach)
+        elif lat_f > 37.79 and lon_f > -122.42:
+            return "Nob Hill / North Beach"
+        # Downtown/Financial District
+        elif lat_f > 37.78 and lon_f > -122.41:
+            return "Downtown / Financial District"
+        # SoMa / Mission Bay
+        elif lat_f > 37.77 and lon_f > -122.40:
+            return "SoMa"
+        # Mission
+        elif lat_f > 37.75 and lon_f > -122.42:
+            return "Mission"
+        # Castro / Noe Valley
+        elif lat_f > 37.75 and lon_f > -122.44:
+            return "Castro / Noe Valley"
+        # Haight / Western Addition
+        elif lat_f > 37.77 and lon_f > -122.45:
+            return "Haight-Ashbury"
+        # Sunset
+        elif lat_f < 37.75 and lon_f < -122.48:
+            return "Sunset"
+        # Richmond
+        elif lat_f > 37.77 and lon_f < -122.48:
+            return "Richmond"
+        # Potrero Hill / Dogpatch
+        elif lat_f < 37.77 and lon_f > -122.40:
+            return "Potrero Hill"
+    
+    return "San Francisco"
+
+
 def _listing_url(item: dict[str, Any], address: str) -> str:
     """Use link from API when available; else agent/office/builder site, mailto, Google only as last resort."""
     # 1. Prefer any direct listing URL from the API (if they add url/link/listingUrl etc.)
@@ -183,6 +250,9 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
 
     lat = item.get("latitude")
     lon = item.get("longitude")
+    
+    # Infer neighborhood from address/coordinates if API only returns generic city
+    inferred_neighborhood = _infer_neighborhood(address, lat, lon, item.get("city"))
     thumbnail_url = None
     if STATIC_MAP_URL_TEMPLATE and lat is not None and lon is not None:
         try:
@@ -195,7 +265,7 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
         "title": address or "Rental listing",
         "url": url,
         "price": price,
-        "neighborhood": item.get("city") or "Unknown",
+        "neighborhood": inferred_neighborhood or item.get("city") or "Unknown",
         "bedrooms": bedrooms,
         "bathrooms": bathrooms,
         "sqft": sqft,
