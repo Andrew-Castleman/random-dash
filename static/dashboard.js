@@ -542,19 +542,24 @@
       var neighborhoodForMap = (apt.neighborhood || "San Francisco").trim();
       var lat = apt.latitude != null && apt.longitude != null ? Number(apt.latitude) : null;
       var lon = apt.latitude != null && apt.longitude != null ? Number(apt.longitude) : null;
+      var defaultSF = [37.7849, -122.4094];
       if (lat === null || lon === null) {
-        var sfNeighborhoods = { "mission": [37.7599, -122.4148], "soma": [37.7786, -122.4056], "nob hill": [37.7928, -122.4155], "nob-hill": [37.7928, -122.4155], "marina": [37.8025, -122.4364], "sunset": [37.7540, -122.5042], "richmond": [37.7804, -122.4602], "castro": [37.7609, -122.4350], "haight": [37.7699, -122.4464], "haight-ashbury": [37.7699, -122.4464], "pacific heights": [37.7912, -122.4368], "pac heights": [37.7912, -122.4368], "inner sunset": [37.7543, -122.4650], "downtown": [37.7849, -122.4094], "financial district": [37.7940, -122.3998], "noe valley": [37.7512, -122.4337], "mission district": [37.7599, -122.4148], "tenderloin": [37.7844, -122.4092], "nopa": [37.7769, -122.4384], "alamo square": [37.7765, -122.4322], "russian hill": [37.8010, -122.4205], "north beach": [37.8050, -122.4102], "potrero hill": [37.7582, -122.4040], "hayes valley": [37.7766, -122.4224], "lower nob hill": [37.7882, -122.4128], "twin peaks": [37.7544, -122.4474], "ingleside": [37.7242, -122.4522], "bayview": [37.7300, -122.3870], "excelsior": [37.7228, -122.4333], "outer mission": [37.7228, -122.4333] };
-        var key = neighborhoodForMap.toLowerCase().replace(/\s+/g, " ").replace(/\s/g, "-");
+        var sfNeighborhoods = { "mission": [37.7599, -122.4148], "soma": [37.7786, -122.4056], "south beach": [37.7786, -122.4056], "nob hill": [37.7928, -122.4155], "nob-hill": [37.7928, -122.4155], "marina": [37.8025, -122.4364], "sunset": [37.7540, -122.5042], "richmond": [37.7804, -122.4602], "seacliff": [37.7844, -122.4922], "castro": [37.7609, -122.4350], "haight": [37.7699, -122.4464], "haight-ashbury": [37.7699, -122.4464], "pacific heights": [37.7912, -122.4368], "pac heights": [37.7912, -122.4368], "inner sunset": [37.7543, -122.4650], "downtown": [37.7849, -122.4094], "financial district": [37.7940, -122.3998], "noe valley": [37.7512, -122.4337], "mission district": [37.7599, -122.4148], "tenderloin": [37.7844, -122.4092], "nopa": [37.7769, -122.4384], "alamo square": [37.7765, -122.4322], "russian hill": [37.8010, -122.4205], "north beach": [37.8050, -122.4102], "potrero hill": [37.7582, -122.4040], "hayes valley": [37.7766, -122.4224], "lower nob hill": [37.7882, -122.4128], "twin peaks": [37.7544, -122.4474], "ingleside": [37.7242, -122.4522], "bayview": [37.7300, -122.3870], "excelsior": [37.7228, -122.4333], "outer mission": [37.7228, -122.4333], "san francisco": [37.7849, -122.4094], "sf": [37.7849, -122.4094], "laurel hts": [37.7870, -122.4530], "presidio": [37.8000, -122.4660], "daly city": [37.7059, -122.4709] };
+        var key = neighborhoodForMap.toLowerCase().replace(/\s+/g, " ").trim().replace(/\s/g, "-");
         var coords = sfNeighborhoods[key] || sfNeighborhoods[key.replace(/-/g, " ")];
-        if (coords) { lat = coords[0]; lon = coords[1]; }
+        if (!coords && key.indexOf("/") !== -1) {
+          var parts = key.split("/").map(function (p) { return p.replace(/-/g, " ").trim(); });
+          for (var i = 0; i < parts.length && !coords; i++) { coords = sfNeighborhoods[parts[i]] || sfNeighborhoods[parts[i].replace(/\s/g, "-")]; }
+        }
+        if (coords) { lat = coords[0]; lon = coords[1]; } else { lat = defaultSF[0]; lon = defaultSF[1]; }
       }
       var photoBox = "";
       if (apt.thumbnail_url) {
         photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(apt.url || "#") + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
       } else if (lat !== null && lon !== null) {
         var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
-        var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + bbox + "&layer=mapnik&marker=" + lat + "," + lon;
-        photoBox = "<div class=\"apt-map-wrap\"><iframe class=\"apt-map-iframe\" title=\"Map: " + escapeHtml(neighborhoodForMap) + "\" src=\"" + mapUrl + "\" loading=\"lazy\"></iframe><div class=\"apt-map-label\">\uD83D\uDCCD " + escapeHtml(neighborhoodForMap) + ", San Francisco</div></div>";
+        var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
+        photoBox = "<div class=\"apt-map-wrap\"><iframe class=\"apt-map-iframe\" sandbox=\"allow-scripts\" title=\"Map: " + escapeHtml(neighborhoodForMap) + "\" src=\"" + escapeHtml(mapUrl) + "\" loading=\"lazy\"></iframe><div class=\"apt-map-label\">\uD83D\uDCCD " + escapeHtml(neighborhoodForMap) + ", San Francisco</div></div>";
       } else {
         var mapSearchQuery = encodeURIComponent(neighborhoodForMap + ", San Francisco, CA");
         photoBox = "<div class=\"apt-photo-placeholder apt-location-placeholder\"><span class=\"apt-photo-icon\">\uD83D\uDCCD</span><span class=\"apt-photo-text\">" + escapeHtml(neighborhoodForMap) + "</span><span class=\"apt-photo-sub\">San Francisco</span><a href=\"https://www.google.com/maps/search/?api=1&query=" + mapSearchQuery + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-map-link\">View on map</a></div>";
