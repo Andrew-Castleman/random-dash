@@ -1,13 +1,14 @@
 """
 Portal (API) rental listings for SF and Stanford area.
-Uses a rental API with server-side caching and rate limiting.
-Simpler than scraper logic—API returns structured data.
+Minimizes API calls: 7-day cache, persistent cache file, 2 cities for Stanford, serve stale when at limit.
 """
 
+import json
 import logging
 import os
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -18,15 +19,56 @@ logger = logging.getLogger(__name__)
 
 API_KEY = os.environ.get("RENTCAST_API_KEY", "").strip()
 BASE_URL = "https://api.rentcast.io/v1"
-# Default cache TTL: 24 hours (86400 seconds) to minimize API calls
-CACHE_TTL = int(os.environ.get("PORTAL_CACHE_TTL", "86400"))
+# 7-day default cache to minimize API calls (50/month budget)
+CACHE_TTL = int(os.environ.get("PORTAL_CACHE_TTL", "604800"))
 MIN_REQUEST_INTERVAL = int(os.environ.get("PORTAL_MIN_REQUEST_INTERVAL", "120"))
 REQUEST_TIMEOUT = 25
 MAX_RESULTS = 100
 MAX_MONTHLY_CALLS = 50
 
+# Persistent cache path (survives restarts so deploys don't burn calls)
+_CACHE_FILE = os.environ.get("PORTAL_CACHE_FILE", "").strip() or (Path(__file__).resolve().parent / "data" / "portal_listings_cache.json")
+
 # Initialize: reset counter if new month
 reset_monthly_api_counter_if_needed()
+
+
+def _load_persistent_cache() -> None:
+    """Load cache from file so restarts don't burn API calls."""
+    global _cache
+    path = Path(_CACHE_FILE) if isinstance(_CACHE_FILE, str) else _CACHE_FILE
+    if not path.exists():
+        return
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return
+        with _cache_lock:
+            for k, v in data.items():
+                if isinstance(v, dict) and "entries" in v and "ts" in v:
+                    _cache[k] = (v["entries"], float(v["ts"]))
+        logger.info("Loaded portal listings cache from %s (%s keys)", path, len(_cache))
+    except Exception as e:
+        logger.warning("Could not load portal cache file %s: %s", path, e)
+
+
+def _save_persistent_cache() -> None:
+    """Write in-memory cache to file."""
+    path = Path(_CACHE_FILE) if isinstance(_CACHE_FILE, str) else _CACHE_FILE
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with _cache_lock:
+            data = {k: {"entries": entries, "ts": ts} for k, (entries, ts) in _cache.items()}
+        with open(path, "w") as f:
+            json.dump(data, f, separators=(",", ":"))
+    except Exception as e:
+        logger.warning("Could not save portal cache file %s: %s", path, e)
+
+
+# Load persistent cache on import (so restarts reuse data)
+_load_persistent_cache()
+
 
 def get_api_usage_info() -> dict[str, Any]:
     """Get current API usage info for monitoring."""
@@ -50,6 +92,17 @@ def _rate_limit(region: str) -> None:
         if time.time() - last < MIN_REQUEST_INTERVAL:
             time.sleep(MIN_REQUEST_INTERVAL - (time.time() - last))
         _last_request[region] = time.time()
+
+
+def _is_publicly_listed(item: dict[str, Any]) -> bool:
+    """Only include listings that are currently active and publicly listed."""
+    status = (item.get("status") or "").strip()
+    if status.lower() != "active":
+        return False
+    # Exclude if listing has been removed (no longer current)
+    if item.get("removedDate"):
+        return False
+    return True
 
 
 def _normalize(item: dict[str, Any]) -> dict[str, Any]:
@@ -127,7 +180,9 @@ def _fetch(city: str, state: str, min_price: int, max_price: int, limit: int) ->
         )
         r.raise_for_status()
         data = r.json()
-        result = data if isinstance(data, list) else []
+        raw_list = data if isinstance(data, list) else []
+        # Only include currently active, publicly listed (not removed)
+        result = [it for it in raw_list if _is_publicly_listed(it)]
         
         # Only increment counter on successful API call
         if increment_api_call_count():
@@ -147,26 +202,32 @@ def get_portal_listings_sf(
     max_price: int = 5000,
     max_return: int = 200,
 ) -> list[dict[str, Any]]:
-    """Get SF listings. Aggressively cached (24h default) to minimize API calls."""
+    """Get SF listings. Long-lived cache; persistent file; stale served when at limit."""
     cache_key = f"sf_{min_price}_{max_price}"
     now = time.time()
     with _cache_lock:
         if cache_key in _cache:
             entries, ts = _cache[cache_key]
             if now - ts < CACHE_TTL:
-                logger.debug(f"Returning cached SF listings (age: {int(now - ts)}s)")
+                logger.debug("Returning cached SF listings (age: %ss)", int(now - ts))
                 return entries[:max_return]
-    
-    # Check limit before rate limiting (saves time if limit reached)
+            stale_entries, stale_ts = entries, ts  # keep for limit fallback
+        else:
+            stale_entries, stale_ts = [], 0.0
+
     if get_monthly_api_call_count() >= MAX_MONTHLY_CALLS:
-        logger.warning("Monthly API limit reached. Returning empty results.")
+        if stale_entries:
+            logger.info("Monthly limit reached; serving stale SF cache (age: %ss)", int(now - stale_ts))
+            return stale_entries[:max_return]
+        logger.warning("Monthly API limit reached. No stale cache. Returning empty.")
         return []
-    
+
     _rate_limit("sf")
     raw = _fetch("San Francisco", "CA", min_price, max_price, max_return)
-    entries = [_normalize(it) for it in raw]
+    entries = [_normalize(it) for it in raw if _is_publicly_listed(it)]
     with _cache_lock:
         _cache[cache_key] = (entries, time.time())
+    _save_persistent_cache()
     return entries[:max_return]
 
 
@@ -175,32 +236,39 @@ def get_portal_listings_stanford(
     max_price: int = 6500,
     max_return: int = 200,
 ) -> list[dict[str, Any]]:
-    """Get Stanford area listings. Aggressively cached (24h default) to minimize API calls."""
+    """Get Stanford area listings. Long-lived cache; persistent file; 2 cities only; stale when at limit."""
     cache_key = f"stanford_{min_price}_{max_price}"
     now = time.time()
     with _cache_lock:
         if cache_key in _cache:
             entries, ts = _cache[cache_key]
             if now - ts < CACHE_TTL:
-                logger.debug(f"Returning cached Stanford listings (age: {int(now - ts)}s)")
+                logger.debug("Returning cached Stanford listings (age: %ss)", int(now - ts))
                 return entries[:max_return]
-    
-    # Check limit before rate limiting (saves time if limit reached)
+            stale_entries, stale_ts = entries, ts
+        else:
+            stale_entries, stale_ts = [], 0.0
+
     if get_monthly_api_call_count() >= MAX_MONTHLY_CALLS:
-        logger.warning("Monthly API limit reached. Returning empty results.")
+        if stale_entries:
+            logger.info("Monthly limit reached; serving stale Stanford cache (age: %ss)", int(now - stale_ts))
+            return stale_entries[:max_return]
+        logger.warning("Monthly API limit reached. No stale cache. Returning empty.")
         return []
-    
+
     _rate_limit("stanford")
-    cities = [("Palo Alto", "CA"), ("Menlo Park", "CA"), ("Redwood City", "CA"), ("Mountain View", "CA")]
+    # Two cities only: 2 API calls per full refresh when cache misses
+    cities = [("Palo Alto", "CA"), ("Menlo Park", "CA")]
     per_city = max(50, (max_return + len(cities) - 1) // len(cities))
     seen: set[str] = set()
     all_entries: list[dict] = []
     for city, state in cities:
-        # Each city is one API call - check limit before each call
         if get_monthly_api_call_count() >= MAX_MONTHLY_CALLS:
-            logger.warning(f"Monthly API limit reached while fetching {city}. Stopping.")
+            logger.warning("Monthly limit reached while fetching %s. Stopping.", city)
             break
         for it in _fetch(city, state, min_price, max_price, per_city):
+            if not _is_publicly_listed(it):
+                continue
             lid = it.get("id")
             if lid and lid in seen:
                 continue
@@ -210,4 +278,5 @@ def get_portal_listings_stanford(
     all_entries.sort(key=lambda x: x.get("price") or 0)
     with _cache_lock:
         _cache[cache_key] = (all_entries, time.time())
+    _save_persistent_cache()
     return all_entries[:max_return]

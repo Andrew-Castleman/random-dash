@@ -28,7 +28,9 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
 RENTCAST_API_KEY = os.environ.get("RENTCAST_API_KEY", "")
 
-# Portal (API) listings: cache TTL and min seconds between API calls per region
-# Default cache TTL: 24 hours (86400 seconds) to minimize expensive API calls
-PORTAL_CACHE_TTL = int(os.environ.get("PORTAL_CACHE_TTL", "86400"))
+# Portal (API) listings: minimize API calls
+# Default cache TTL: 7 days so we rarely refetch (50 calls/month budget)
+PORTAL_CACHE_TTL = int(os.environ.get("PORTAL_CACHE_TTL", "604800"))
 PORTAL_MIN_REQUEST_INTERVAL = int(os.environ.get("PORTAL_MIN_REQUEST_INTERVAL", "120"))
+# Optional: file path for persistent cache (survives restarts; avoids burning calls on deploy)
+PORTAL_CACHE_FILE = os.environ.get("PORTAL_CACHE_FILE", "")
