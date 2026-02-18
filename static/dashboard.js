@@ -522,6 +522,21 @@
   function loadApartments() {
     var list = document.getElementById("apartmentsList");
     var btn = document.getElementById("refreshApartments");
+    var initial = window.__INITIAL_PORTAL_SF__;
+    if (initial && initial.apartments && initial.apartments.length >= 0) {
+      apartmentsData = initial.apartments;
+      renderApartments(apartmentsData);
+      updateApartmentStats(initial.stats || {});
+      window.__INITIAL_PORTAL_SF__ = null;
+      fetch("/api/apartments/portal").then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.error && data.apartments) {
+          apartmentsData = data.apartments;
+          renderApartments(apartmentsData);
+          updateApartmentStats(data.stats || {});
+        }
+      }).catch(function () {});
+      return;
+    }
     if (list) setListingsProgress(list, "Requesting listings…");
     if (btn) { btn.disabled = true; btn.textContent = "\uD83D\uDD04 Loading…"; }
     fetch("/api/apartments/portal")
@@ -735,6 +750,21 @@
   function loadStanfordApartments() {
     var list = document.getElementById("stanfordApartmentsList");
     var btn = document.getElementById("refreshStanfordApartments");
+    var initial = window.__INITIAL_PORTAL_STANFORD__;
+    if (initial && initial.apartments && initial.apartments.length >= 0) {
+      stanfordApartmentsData = initial.apartments;
+      renderStanfordApartments(stanfordApartmentsData);
+      updateStanfordApartmentStats(initial.stats || {});
+      window.__INITIAL_PORTAL_STANFORD__ = null;
+      fetch("/api/apartments/portal/stanford").then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.error && data.apartments) {
+          stanfordApartmentsData = data.apartments;
+          renderStanfordApartments(stanfordApartmentsData);
+          updateStanfordApartmentStats(data.stats || {});
+        }
+      }).catch(function () {});
+      return;
+    }
     if (list) setListingsProgress(list, "Requesting listings…");
     if (btn) { btn.disabled = true; btn.textContent = "\uD83D\uDD04 Loading…"; }
     fetch("/api/apartments/portal/stanford")

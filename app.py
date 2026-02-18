@@ -303,9 +303,41 @@ def run_refresh():
 
 # ---------- Routes ----------
 
+def _get_portal_sf_payload():
+    """Portal SF listings + stats (same shape as API). Uses cache; no extra API call if cache warm."""
+    try:
+        apartments = get_portal_listings_sf(min_price=2000, max_price=5000, max_return=PORTAL_SF_MAX)
+        total = len(apartments)
+        excellent = len([a for a in apartments if (a.get("deal_score") or 0) >= 80])
+        avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
+        return {"apartments": apartments, "stats": {"total": total, "excellent_deals": excellent, "average_price": avg_price}}
+    except Exception as e:
+        logger.warning("Preload portal SF: %s", e)
+        return {"apartments": [], "stats": {"total": 0, "excellent_deals": 0, "average_price": 0}}
+
+
+def _get_portal_stanford_payload():
+    """Portal Stanford listings + stats (same shape as API). Uses cache."""
+    try:
+        apartments = get_portal_listings_stanford(min_price=1500, max_price=6500, max_return=PORTAL_STANFORD_MAX)
+        total = len(apartments)
+        excellent = len([a for a in apartments if (a.get("deal_score") or 0) >= 80])
+        avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
+        return {"apartments": apartments, "stats": {"total": total, "excellent_deals": excellent, "average_price": avg_price}}
+    except Exception as e:
+        logger.warning("Preload portal Stanford: %s", e)
+        return {"apartments": [], "stats": {"total": 0, "excellent_deals": 0, "average_price": 0}}
+
+
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("dashboard.html"), 200, {"Content-Type": "text/html; charset=utf-8"}
+    portal_sf = _get_portal_sf_payload()
+    portal_stanford = _get_portal_stanford_payload()
+    return render_template(
+        "dashboard.html",
+        initial_portal_sf=portal_sf,
+        initial_portal_stanford=portal_stanford,
+    ), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
 @app.route("/about")
