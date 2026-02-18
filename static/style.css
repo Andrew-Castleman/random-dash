@@ -1,19 +1,45 @@
-/* Market Intelligence Dashboard — card-based, inline AI analysis */
+/* Design system: professional, Airbnb/Zillow-grade, unicorn-ready */
 
 :root {
-  --bg: #0c0c0e;
-  --surface: #141418;
-  --surface-elevated: #1a1a20;
-  --border: #2a2a32;
-  --text: #e4e4e8;
-  --text-muted: #8888a0;
-  --up: #22c55e;
-  --down: #ef4444;
-  --neutral: #71717a;
-  --accent: #6366f1;
-  --analysis-bg: #1e1e26;
-  --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Core palette */
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --border: #ebebeb;
+  --border-strong: #dddddd;
+  --text: #222222;
+  --text-secondary: #717171;
+  --text-muted: #6b7280;
+  --up: #00a699;
+  --down: #ff5a5f;
+  --neutral: #717171;
+  --accent: #ff5a5f;
+  --accent-soft: rgba(255, 90, 95, 0.08);
+  --analysis-bg: #f7f7f8;
+  /* Typography */
+  --font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -27,18 +53,19 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 .dashboard {
   min-height: 100vh;
-  padding: 16px;
-  max-width: 1400px;
+  padding: var(--space-6);
+  max-width: 1280px;
   margin: 0 auto;
 }
 
 .dashboard-header {
-  margin-bottom: 20px;
-  padding-bottom: 12px;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
@@ -46,65 +73,67 @@ body {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 .dashboard-header h1 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--text);
 }
 
 .dashboard-tagline {
-  margin: 4px 0 0;
-  font-size: 0.8125rem;
-  color: var(--text-muted);
+  margin: var(--space-1) 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-4);
   flex-shrink: 0;
 }
 
 .dashboard-updated {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
   font-family: var(--font-mono);
 }
 
 .btn-refresh {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: #fff;
-  background: var(--accent);
+  background: var(--text);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.2s, opacity 0.2s;
+  transition: background 0.2s, opacity 0.2s, transform 0.15s;
 }
 .btn-refresh:hover:not(:disabled) {
-  background: #5558e3;
+  background: #333;
+  transform: translateY(-1px);
 }
 .btn-refresh:disabled {
-  opacity: 0.85;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 .btn-refresh .btn-refresh-icon {
-  font-size: 1.1em;
+  font-size: 1em;
 }
 .btn-refresh .btn-refresh-spinner {
   display: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
@@ -117,16 +146,16 @@ body {
 /* Toast notification */
 .toast {
   position: fixed;
-  bottom: 24px;
+  bottom: var(--space-6);
   left: 50%;
   transform: translateX(-50%) translateY(80px);
-  padding: 12px 20px;
+  padding: var(--space-3) var(--space-5);
   font-size: 0.875rem;
   font-weight: 500;
   color: #fff;
-  background: var(--accent);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: var(--text);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
   z-index: 1000;
   opacity: 0;
   visibility: hidden;
@@ -139,14 +168,12 @@ body {
   opacity: 1;
   visibility: visible;
 }
-.toast.toast--error {
-  background: var(--down);
-}
+.toast.toast--error { background: var(--down); }
 
 .stale-warning {
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: 0.8125rem;
-  color: #f59e0b;
+  color: #b45309;
 }
 .stale-warning.hidden { display: none; }
 
@@ -211,190 +238,173 @@ body {
   font-weight: 400;
 }
 
-/* Economic calendar — gradient card-based widget */
+/* Economic calendar — clean card-based widget */
 .economic-calendar-widget {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 30px;
-  border-radius: 16px;
-  margin: -12px -14px;
+  background: var(--surface);
+  color: var(--text);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-4));
   margin-bottom: 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 .economic-calendar-widget__heading {
-  margin: 0 0 25px 0;
-  font-size: 24px;
+  margin: 0 0 var(--space-5);
+  font-size: 1.25rem;
   font-weight: 700;
-  color: white;
+  color: var(--text);
+  letter-spacing: -0.02em;
 }
 .econ-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 30px;
+  gap: var(--space-6);
 }
 @media (max-width: 968px) {
-  .econ-grid {
-    grid-template-columns: 1fr;
-  }
+  .econ-grid { grid-template-columns: 1fr; }
 }
 .econ-section__title {
-  font-size: 16px;
-  margin: 0 0 15px 0;
-  opacity: 0.9;
+  font-size: 0.75rem;
+  margin: 0 0 var(--space-3);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: white;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
 .econ-cards {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: var(--space-3);
 }
 .econ-card {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 20px;
+  background: var(--analysis-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
   position: relative;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: box-shadow 0.2s, border-color 0.2s;
+  border: 1px solid var(--border);
 }
 .econ-card:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border-strong);
 }
 .econ-card .event-icon {
-  font-size: 32px;
+  font-size: 1.5rem;
   position: absolute;
-  top: 15px;
-  right: 15px;
-  opacity: 0.5;
+  top: var(--space-4);
+  right: var(--space-4);
+  opacity: 0.4;
+  color: var(--text-secondary);
 }
 .econ-card .event-name {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  padding-right: 45px;
-  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+  padding-right: 2.5rem;
+  color: var(--text);
+  line-height: 1.35;
 }
 .econ-card .event-date {
-  font-size: 13px;
-  opacity: 0.8;
-  margin-bottom: 15px;
-  color: white;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
 }
 .econ-card.recent .result {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
   flex-wrap: wrap;
 }
 .econ-card .result .actual {
-  font-size: 32px;
-  font-weight: 800;
+  font-size: 1.5rem;
+  font-weight: 700;
   line-height: 1;
-  color: white;
+  color: var(--text);
+  font-family: var(--font-mono);
 }
-.econ-card .result .actual.positive {
-  color: #51cf66;
-}
-.econ-card .result .actual.negative {
-  color: #ff6b6b;
-}
+.econ-card .result .actual.positive { color: var(--up); }
+.econ-card .result .actual.negative { color: var(--down); }
 .econ-card .result .vs-label {
-  font-size: 14px;
-  opacity: 0.7;
-  color: white;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 .econ-card .result .previous {
-  font-size: 16px;
-  opacity: 0.85;
-  color: white;
+  font-size: 1rem;
+  color: var(--text-secondary);
 }
 .beat-badge,
 .miss-badge {
   display: inline-block;
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
-.beat-badge {
-  background: #51cf66;
-  color: white;
-}
-.miss-badge {
-  background: #ff6b6b;
-  color: white;
-}
-.econ-card .event-datetime {
-  margin-bottom: 12px;
-}
+.beat-badge { background: var(--up); color: #fff; }
+.miss-badge { background: var(--down); color: #fff; }
+.econ-card .event-datetime { margin-bottom: var(--space-3); }
 .econ-card .event-datetime .date {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
-  margin-bottom: 4px;
-  color: white;
+  margin-bottom: var(--space-1);
+  color: var(--text);
 }
 .econ-card .event-datetime .time {
-  font-size: 13px;
-  opacity: 0.8;
-  color: white;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 .econ-card .countdown {
   display: inline-block;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  margin-bottom: 12px;
-  color: white;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  color: var(--text);
+  background: var(--border);
 }
 .econ-card .countdown.urgency-low {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--analysis-bg);
+  color: var(--text-secondary);
 }
 .econ-card .countdown.urgency-medium {
-  background: #ffd93d;
-  color: #333;
+  background: #f7b731;
+  color: #1a1a1a;
 }
 .econ-card .countdown.urgency-high {
   background: #ff9f43;
-  color: white;
+  color: #fff;
   animation: pulse-orange 2s infinite;
 }
 .econ-card .countdown.urgency-critical {
-  background: #ff6b6b;
-  color: white;
-  font-size: 15px;
-  font-weight: 900;
+  background: var(--down);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
   animation: pulse-red 1s infinite;
-  box-shadow: 0 0 12px rgba(255, 107, 107, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.3);
 }
 @keyframes pulse-orange {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.02); }
+  50% { opacity: 0.9; transform: scale(1.02); }
 }
 @keyframes pulse-red {
-  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 12px rgba(255, 107, 107, 0.6); }
-  50% { opacity: 0.9; transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 107, 107, 0.9); }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.02); }
 }
 .econ-card .forecast-data {
-  font-size: 14px;
-  opacity: 0.9;
-  line-height: 1.4;
-  color: white;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 .econ-cards .no-data {
   text-align: center;
-  padding: 30px;
-  opacity: 0.6;
+  padding: var(--space-6);
   font-style: italic;
-  color: white;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 480px) {
@@ -405,33 +415,36 @@ body {
 .widget {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--shadow-sm);
 }
 
 .widget-title {
   margin: 0;
-  padding: 12px 14px;
+  padding: var(--space-3) var(--space-4);
   font-size: 0.9375rem;
   font-weight: 600;
-  background: var(--surface-elevated);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
+  color: var(--text);
 }
 
 .widget-body {
-  padding: 12px 14px;
+  padding: var(--space-4);
   min-height: 120px;
   flex: 1;
+  color: var(--text);
 }
 
 .widget-loading {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .widget-loading::before {
   content: "";
@@ -452,10 +465,10 @@ body {
 /* Stock card: top = data, bottom = AI analysis */
 .stock-card {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  margin-bottom: 12px;
-  background: var(--surface-elevated);
+  margin-bottom: var(--space-3);
+  background: var(--surface);
 }
 .stock-card:last-child { margin-bottom: 0; }
 
@@ -560,573 +573,584 @@ body {
   .stock-card__name { max-width: 120px; }
 }
 
-/* Tab navigation */
+/* Tab navigation — clean, professional */
 .dashboard-tabs {
   display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 2px solid var(--border, #e0e0e0);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
 }
+
 .tab-btn {
-  padding: 12px 24px;
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  font-size: 16px;
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
-  color: var(--text-muted, #666);
-  transition: all 0.3s;
+  color: var(--text-secondary);
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
 }
+
 .tab-btn:hover {
-  color: var(--text, #333);
-  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+  background: var(--analysis-bg);
 }
+
 .tab-btn.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
+
 .tab-btn--secondary {
   margin-left: auto;
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #9ca3af;
-  padding: 8px 14px;
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-4);
 }
-.tab-btn--secondary:hover {
-  color: #6b7280;
-}
-.tab-btn--secondary.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
-}
-.tab-content { display: none; }
-.tab-content.active { display: block; }
 
-/* SF Apartments */
-.apartments-container { max-width: 1400px; margin: 0 auto; }
+.tab-btn--secondary:hover {
+  color: var(--text-secondary);
+}
+
+.tab-btn--secondary.active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: tabFade 0.2s ease; }
+
+@keyframes tabFade {
+  from { opacity: 0.97; }
+  to { opacity: 1; }
+}
+
+/* Listings — Airbnb/Zillow-grade layout */
+.apartments-container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
 .apartments-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-4);
 }
-.apartments-title { margin: 0 0 5px 0; font-size: 28px; }
-.range-subtitle { color: var(--text-muted, #666); font-size: 14px; margin: 0; }
+
+.apartments-title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.range-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  margin: 0;
+}
+
 .refresh-btn {
-  padding: 12px 24px;
-  background: #667eea;
-  color: white;
+  padding: var(--space-3) var(--space-5);
+  background: var(--text);
+  color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 600;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: background 0.3s;
-  font-size: 14px;
+  transition: background 0.2s, transform 0.15s;
 }
-.refresh-btn:hover { background: #5568d3; }
-.refresh-btn:disabled { background: #ccc; cursor: not-allowed; }
+.refresh-btn:hover:not(:disabled) {
+  background: #333;
+  transform: translateY(-1px);
+}
+.refresh-btn:disabled {
+  background: var(--border-strong);
+  cursor: not-allowed;
+  transform: none;
+}
 
 .apartments-filters {
   display: flex;
-  gap: 15px;
-  margin-bottom: 25px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
   flex-wrap: wrap;
+  align-items: center;
 }
+
 .apartments-filters select {
-  padding: 10px 15px;
-  border: 1px solid var(--border, #ddd);
-  border-radius: 8px;
-  font-size: 14px;
-  background: var(--surface, white);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-family: var(--font);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
+  min-height: 40px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.apartments-filters select:hover {
+  border-color: var(--border-strong);
 }
 .apartments-filters select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
 }
 
 .apartments-stats {
   display: flex;
-  gap: 20px;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  color: white;
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5) var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
-.apartments-stats .stat { display: flex; flex-direction: column; gap: 5px; }
+
+.apartments-stats .stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 .apartments-stats .stat-label {
-  font-size: 12px;
-  opacity: 0.9;
+  font-size: 0.6875rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
 }
-.apartments-stats .stat-value { font-size: 24px; font-weight: 700; }
+.apartments-stats .stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
 
 .apartments-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
-}
-@media (max-width: 768px) {
-  .apartments-grid { grid-template-columns: 1fr; }
-  .apartments-stats { flex-direction: column; }
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-5);
 }
 
+@media (max-width: 768px) {
+  .apartments-grid { grid-template-columns: 1fr; gap: var(--space-4); }
+  .apartments-stats { flex-direction: row; flex-wrap: wrap; gap: var(--space-5); }
+}
+
+/* Listing card — Zillow/Airbnb style */
 .apartment-card {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e0e0e0);
-  border-radius: 12px;
-  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
   position: relative;
-  transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.2s;
+  box-shadow: var(--shadow-card);
 }
 .apartment-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
 }
+
 .deal-badge {
   position: absolute;
-  top: 15px;
-  right: 15px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-weight: 800;
-  font-size: 14px;
-  color: white;
+  top: var(--space-3);
+  right: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: #fff;
+  z-index: 1;
+  letter-spacing: 0.02em;
 }
-.deal-badge.excellent { background: #51cf66; box-shadow: 0 2px 8px rgba(81, 207, 102, 0.4); }
-.deal-badge.good { background: #69db7c; }
-.deal-badge.fair { background: #ffd93d; color: #333; }
-.deal-badge.poor { background: #ff6b6b; }
+.deal-badge.excellent { background: #00a699; box-shadow: var(--shadow-sm); }
+.deal-badge.good { background: #008489; }
+.deal-badge.fair { background: #f7b731; color: #1a1a1a; }
+.deal-badge.poor { background: var(--down); }
 
-.apt-header { margin-bottom: 15px; }
+.apt-header { margin-bottom: var(--space-3); padding: 0 var(--space-5); padding-top: var(--space-4); }
 .apt-title {
-  font-size: 18px;
-  margin: 0 0 8px 0;
-  padding-right: 80px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+  padding-right: 4rem;
   line-height: 1.4;
-  color: var(--text, #333);
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.apt-price { font-size: 24px; font-weight: 700; color: #667eea; }
-.apt-details { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 15px; }
-.apt-detail { font-size: 14px; color: var(--text-muted, #666); }
+.apt-price {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+.apt-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding: 0 var(--space-5);
+}
+.apt-detail { font-size: 0.875rem; color: var(--text-secondary); }
 .apt-metrics {
   display: flex;
-  gap: 20px;
-  margin-bottom: 15px;
-  padding: 12px;
-  background: var(--surface-elevated, #f8f9fa);
-  border-radius: 8px;
+  gap: var(--space-5);
+  margin: 0 var(--space-5) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--analysis-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
-.apt-metrics .metric { display: flex; flex-direction: column; }
+.apt-metrics .metric { display: flex; flex-direction: column; gap: var(--space-1); }
 .apt-metrics .metric-label {
-  font-size: 11px;
-  color: var(--text-muted, #999);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.04em;
 }
-.apt-metrics .metric-value { font-size: 16px; font-weight: 700; margin-top: 4px; }
-.apt-metrics .metric-value.positive { color: #51cf66; }
-.apt-metrics .metric-value.negative { color: #ff6b6b; }
-.apt-metrics .metric-value.neutral { color: var(--text-muted, #666); }
+.apt-metrics .metric-value { font-size: 0.9375rem; font-weight: 600; color: var(--text); }
+.apt-metrics .metric-value.positive { color: var(--up); }
+.apt-metrics .metric-value.negative { color: var(--down); }
+.apt-metrics .metric-value.neutral { color: var(--text-secondary); }
 .apt-analysis {
-  padding: 12px;
-  background: #f0f4ff;
-  border-radius: 8px;
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 15px;
-  font-style: italic;
-  color: var(--text, #333);
+  margin: 0 var(--space-5) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--accent);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--text);
+  font-style: normal;
 }
 .apt-link {
-  display: inline-block;
-  padding: 10px 20px;
-  background: #667eea;
-  color: white;
+  display: block;
+  margin: 0 var(--space-5) var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  background: var(--text);
+  color: #fff;
+  text-align: center;
   text-decoration: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-weight: 600;
-  transition: background 0.3s;
+  font-size: 0.875rem;
+  transition: background 0.2s, transform 0.15s;
 }
-.apt-link:hover { background: #5568d3; }
+.apt-link:hover {
+  background: #333;
+  transform: translateY(-1px);
+}
+
 .no-apartments,
 .error-message {
   text-align: center;
-  padding: 60px 20px;
-  color: var(--text-muted, #999);
-  font-size: 18px;
+  padding: var(--space-10) var(--space-5);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
 }
-.error-message { color: #ff6b6b; }
+.error-message { color: var(--down); }
 
-/* ----- WSJ-style theme (Markets tab) ----- */
+/* Card media: photo placeholder, thumbnail, map */
+.apt-photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background: var(--analysis-bg);
+  color: var(--text-secondary);
+  gap: var(--space-2);
+}
+.apt-photo-wrap {
+  height: 200px;
+  overflow: hidden;
+  background: var(--analysis-bg);
+}
+.apt-thumbnail-link {
+  display: block;
+  height: 100%;
+  text-decoration: none;
+}
+.apt-thumbnail {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  vertical-align: top;
+}
+.apt-map-wrap {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  background: var(--analysis-bg);
+}
+.apt-map-iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+.apt-map-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-2) var(--space-3);
+  background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.apt-location-placeholder .apt-photo-sub { font-size: 0.75rem; opacity: 0.85; }
+.apt-map-link {
+  margin-top: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.apt-map-link:hover { text-decoration: underline; }
+.apt-photo-icon { font-size: 48px; opacity: 0.6; }
+.apt-photo-text {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ----- Markets tab: professional light theme (tokens) ----- */
 body[data-theme="markets"] {
-  background: #f7f6f4;
+  background: var(--bg);
 }
-body[data-theme="markets"] .dashboard {
-  background: transparent;
-}
+body[data-theme="markets"] .dashboard { background: transparent; }
 body[data-theme="markets"] .dashboard-header {
-  background: #fff;
-  border-bottom: 1px solid #e2e2e2;
-  margin: 0 -16px 20px -16px;
-  padding: 16px 16px 12px;
-  border-radius: 0;
+  background: var(--surface);
+  border-bottom-color: var(--border);
+  margin: 0 calc(-1 * var(--space-4)) var(--space-5);
+  padding: var(--space-4);
 }
 body[data-theme="markets"] .dashboard-header h1 {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--font);
   font-weight: 700;
-  color: #1a1a1a;
-  font-size: 1.75rem;
+  color: var(--text);
+  font-size: 1.5rem;
 }
-body[data-theme="markets"] .dashboard-tagline {
-  color: #666;
-  font-size: 0.8125rem;
-}
-body[data-theme="markets"] .dashboard-updated {
-  color: #666;
-}
-body[data-theme="markets"] .btn-refresh {
-  background: #1a1a1a;
-  color: #fff;
-}
-body[data-theme="markets"] .btn-refresh:hover:not(:disabled) {
-  background: #333;
-}
-body[data-theme="markets"] .dashboard-tabs {
-  border-bottom: 2px solid #e2e2e2;
-  margin-bottom: 24px;
-}
-body[data-theme="markets"] .tab-btn {
-  color: #666;
-  font-family: "Lora", Georgia, serif;
-  font-weight: 600;
-}
-body[data-theme="markets"] .tab-btn:hover {
-  color: #1a1a1a;
-}
-body[data-theme="markets"] .tab-btn.active {
-  color: #c41e3a;
-  border-bottom-color: #c41e3a;
-}
+body[data-theme="markets"] .dashboard-tagline,
+body[data-theme="markets"] .dashboard-updated { color: var(--text-secondary); font-size: 0.8125rem; }
+body[data-theme="markets"] .btn-refresh { background: var(--text); color: #fff; }
+body[data-theme="markets"] .btn-refresh:hover:not(:disabled) { filter: brightness(0.92); }
+body[data-theme="markets"] .dashboard-tabs { border-bottom-color: var(--border); margin-bottom: var(--space-6); }
+body[data-theme="markets"] .tab-btn { color: var(--text-secondary); font-weight: 600; }
+body[data-theme="markets"] .tab-btn:hover { color: var(--text); }
+body[data-theme="markets"] .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 body[data-theme="markets"] #markets-tab .widget {
-  background: #fff;
-  border: 1px solid #e2e2e2;
-  color: #1a1a1a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
 }
 body[data-theme="markets"] #markets-tab .widget-title {
-  font-family: "Playfair Display", Georgia, serif;
   font-weight: 700;
-  color: #1a1a1a;
-  font-size: 1.125rem;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
-  margin-bottom: 12px;
+  color: var(--text);
+  font-size: 1rem;
+  border-bottom-color: var(--border);
+  padding: var(--space-3) var(--space-4);
 }
 body[data-theme="markets"] #markets-tab .widget-body {
-  color: #333;
+  color: var(--text);
+  padding: var(--space-4);
 }
 body[data-theme="markets"] #markets-tab .summary-stats p,
-body[data-theme="markets"] #markets-tab .vs-market-stats p {
-  color: #333;
-}
-body[data-theme="markets"] #markets-tab .movers-section-title {
-  color: #555;
-}
-body[data-theme="markets"] #markets-tab .movers-list li {
-  border-bottom-color: #eee;
-}
-body[data-theme="markets"] #markets-tab .num-up { color: #0d8050; }
-body[data-theme="markets"] #markets-tab .num-down { color: #c41e3a; }
+body[data-theme="markets"] #markets-tab .vs-market-stats p { color: var(--text); }
+body[data-theme="markets"] #markets-tab .movers-section-title { color: var(--text-secondary); }
+body[data-theme="markets"] #markets-tab .movers-list li { border-bottom-color: var(--border); }
+body[data-theme="markets"] #markets-tab .num-up { color: var(--up); }
+body[data-theme="markets"] #markets-tab .num-down { color: var(--down); }
 body[data-theme="markets"] #markets-tab .stock-card {
-  border-color: #eee;
-  background: #fafafa;
+  border-color: var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-md);
 }
 body[data-theme="markets"] #markets-tab .stock-card__name,
-body[data-theme="markets"] #markets-tab .stock-card__price {
-  color: #1a1a1a;
-}
+body[data-theme="markets"] #markets-tab .stock-card__price { color: var(--text); }
 body[data-theme="markets"] #markets-tab .economic-calendar-widget {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-  color: #fff;
-  border: 1px solid #1a1a1a;
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
 }
 body[data-theme="markets"] #markets-tab .econ-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--analysis-bg);
+  border-color: var(--border);
 }
 body[data-theme="markets"] #markets-tab .widget-placeholder,
 body[data-theme="markets"] #markets-tab .widget-loading,
-body[data-theme="markets"] #markets-tab .widget-error {
-  color: #666;
-}
-body[data-theme="markets"] #markets-tab .widget-stock-analysis {
-  color: #555;
-}
+body[data-theme="markets"] #markets-tab .widget-error { color: var(--text-secondary); }
+body[data-theme="markets"] #markets-tab .widget-stock-analysis { color: var(--text); }
 
-/* ----- Zillow-style theme (SF Apartments tab) ----- */
-body[data-theme="apartments"] {
-  background: #f5f5f5;
-}
-body[data-theme="apartments"] .dashboard {
-  background: transparent;
-}
+/* ----- SF Apartments tab: same design system, optional blue accent ----- */
+body[data-theme="apartments"] { background: var(--bg); }
+body[data-theme="apartments"] .dashboard { background: transparent; }
 body[data-theme="apartments"] .dashboard-header {
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
-  margin: 0 -16px 20px -16px;
-  padding: 16px 16px 12px;
+  background: var(--surface);
+  border-bottom-color: var(--border);
 }
-body[data-theme="apartments"] .dashboard-header h1 {
-  color: #1a1a1a;
-  font-size: 1.5rem;
-}
+body[data-theme="apartments"] .dashboard-header h1 { color: var(--text); }
 body[data-theme="apartments"] .dashboard-tagline,
-body[data-theme="apartments"] .dashboard-updated {
-  color: #666;
-}
-body[data-theme="apartments"] .btn-refresh {
-  background: #006aff;
-  color: #fff;
-}
-body[data-theme="apartments"] .btn-refresh:hover:not(:disabled) {
-  background: #0052cc;
-}
-body[data-theme="apartments"] .dashboard-tabs {
-  border-bottom: 2px solid #e8e8e8;
-}
-body[data-theme="apartments"] .tab-btn {
-  color: #666;
-}
-body[data-theme="apartments"] .tab-btn:hover {
-  color: #1a1a1a;
-}
-body[data-theme="apartments"] .tab-btn.active {
-  color: #006aff;
-  border-bottom-color: #006aff;
-}
-body[data-theme="apartments"] .tab-btn--secondary {
-  color: #9ca3af;
-}
-body[data-theme="apartments"] .tab-btn--secondary:hover {
-  color: #6b7280;
-}
-body[data-theme="apartments"] .tab-btn--secondary.active {
-  color: #006aff;
-  border-bottom-color: #006aff;
-}
+body[data-theme="apartments"] .dashboard-updated { color: var(--text-secondary); }
+body[data-theme="apartments"] .dashboard-tabs { border-bottom-color: var(--border); }
+body[data-theme="apartments"] .tab-btn { color: var(--text-secondary); }
+body[data-theme="apartments"] .tab-btn:hover { color: var(--text); }
+body[data-theme="apartments"] .tab-btn.active { color: var(--text); border-bottom-color: var(--text); }
+body[data-theme="apartments"] .tab-btn--secondary { color: var(--text-muted); }
+body[data-theme="apartments"] .tab-btn--secondary:hover { color: var(--text-secondary); }
+body[data-theme="apartments"] .tab-btn--secondary.active { color: var(--text); border-bottom-color: var(--text); }
 
-/* ----- Stanford Trees theme (light, forest green accents) ----- */
-body[data-theme="stanford-apartments"] {
-  background: #e8ebe6;
-}
-body[data-theme="stanford-apartments"] .dashboard {
-  background: transparent;
-}
-body[data-theme="stanford-apartments"] .dashboard-header {
-  background: #f5f7f3;
-  border-bottom: 1px solid #c5d1bd;
-  margin: 0 -16px 20px -16px;
-  padding: 16px 16px 12px;
-}
-body[data-theme="stanford-apartments"] .dashboard-header h1 {
-  color: #1b4d2e;
-  font-size: 1.5rem;
-}
+/* ----- Stanford tab: forest green accent only ----- */
+body[data-theme="stanford-apartments"] { background: var(--bg); }
+body[data-theme="stanford-apartments"] .dashboard { background: transparent; }
+body[data-theme="stanford-apartments"] .dashboard-header { background: var(--surface); border-bottom-color: var(--border); }
+body[data-theme="stanford-apartments"] .dashboard-header h1 { color: var(--text); }
 body[data-theme="stanford-apartments"] .dashboard-tagline,
-body[data-theme="stanford-apartments"] .dashboard-updated {
-  color: #3d5c3a;
-}
-body[data-theme="stanford-apartments"] .btn-refresh {
-  background: #2d5a27;
-  color: #fff;
-}
-body[data-theme="stanford-apartments"] .btn-refresh:hover:not(:disabled) {
-  background: #1b4d2e;
-}
-body[data-theme="stanford-apartments"] .dashboard-tabs {
-  border-bottom: 2px solid #c5d1bd;
-}
-body[data-theme="stanford-apartments"] .tab-btn {
-  color: #3d5c3a;
-}
-body[data-theme="stanford-apartments"] .tab-btn:hover {
-  color: #1b4d2e;
-}
-body[data-theme="stanford-apartments"] .tab-btn.active {
-  color: #2d5a27;
-  border-bottom-color: #2d5a27;
-}
-body[data-theme="stanford-apartments"] .tab-btn--secondary {
-  color: #7a8f76;
-}
-body[data-theme="stanford-apartments"] .tab-btn--secondary:hover {
-  color: #3d5c3a;
-}
-body[data-theme="stanford-apartments"] .tab-btn--secondary.active {
-  color: #2d5a27;
-  border-bottom-color: #2d5a27;
-}
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-container { max-width: 1280px; margin: 0 auto; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-header { margin-bottom: 24px; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-title { font-family: "DM Sans", -apple-system, sans-serif; font-weight: 700; font-size: 1.75rem; color: #1b4d2e; letter-spacing: -0.02em; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .range-subtitle { color: #3d5c3a; font-size: 0.9375rem; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn { background: #2d5a27; color: #fff; border-radius: 6px; font-weight: 600; padding: 10px 20px; font-size: 0.9375rem; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn:hover:not(:disabled) { background: #1b4d2e; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn:disabled { background: #9cb098; cursor: not-allowed; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-filters select { padding: 10px 14px; border: 1px solid #c5d1bd; border-radius: 6px; font-size: 0.875rem; background: #fff; color: #2d3b2a; min-width: 140px; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-filters select:focus { border-color: #2d5a27; outline: none; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-stats { background: #f5f7f3; border: 1px solid #c5d1bd; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; display: flex; gap: 32px; color: #1b4d2e; box-shadow: 0 1px 3px rgba(45, 90, 39, 0.08); }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-stats .stat-label { font-size: 0.75rem; color: #3d5c3a; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-stats .stat-value { font-size: 1.5rem; font-weight: 700; color: #2d5a27; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card { background: #fafcf8; border: 1px solid #c5d1bd; border-radius: 8px; overflow: hidden; padding: 0; box-shadow: 0 1px 3px rgba(45, 90, 39, 0.06); transition: box-shadow 0.2s, transform 0.2s; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card:hover { box-shadow: 0 8px 24px rgba(45, 90, 39, 0.15); transform: translateY(-2px); }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-placeholder { background: linear-gradient(180deg, #d4e0ce 0%, #c5d1bd 100%); color: #5a6b56; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-wrap { background: #d4e0ce; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-wrap { background: #d4e0ce; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-label { background: linear-gradient(to top, rgba(27, 77, 46, 0.85), transparent); color: #fff; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-link { color: #2d5a27; font-weight: 500; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-icon { opacity: 0.8; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-text { color: #3d5c3a; font-weight: 500; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .deal-badge { background: #2d5a27; color: #fff; box-shadow: 0 2px 8px rgba(27, 77, 46, 0.25); }
+body[data-theme="stanford-apartments"] .dashboard-updated { color: var(--text-secondary); }
+body[data-theme="stanford-apartments"] .dashboard-tabs { border-bottom-color: var(--border); }
+body[data-theme="stanford-apartments"] .tab-btn { color: var(--text-secondary); }
+body[data-theme="stanford-apartments"] .tab-btn:hover { color: var(--text); }
+body[data-theme="stanford-apartments"] .tab-btn.active { color: #2d5a27; border-bottom-color: #2d5a27; }
+body[data-theme="stanford-apartments"] .tab-btn--secondary { color: var(--text-muted); }
+body[data-theme="stanford-apartments"] .tab-btn--secondary:hover { color: var(--text-secondary); }
+body[data-theme="stanford-apartments"] .tab-btn--secondary.active { color: #2d5a27; border-bottom-color: #2d5a27; }
+/* Stanford tab: green accent for stats, cards, CTA */
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-stats .stat-value { color: #2d5a27; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn { background: #2d5a27; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn:hover:not(:disabled) { filter: brightness(0.9); }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .deal-badge { background: #2d5a27; }
 body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .deal-badge.excellent { background: #1b4d2e; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-title { color: #1b4d2e; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-price { color: #2d5a27; font-size: 1.5rem; font-weight: 700; margin: 0; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-detail { color: #3d5c3a; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics { background: #e8ebe6; border: 1px solid #c5d1bd; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics .metric-label { color: #3d5c3a; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics .metric-value.positive { color: #1b6b30; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics .metric-value.negative { color: #c53030; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-analysis { background: #e8f0e6; border-left: 3px solid #2d5a27; color: #2d3b2a; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-link { background: #2d5a27; color: #fff; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-price { color: #2d5a27; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-analysis { background: rgba(45, 90, 39, 0.08); border-left-color: #2d5a27; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-link { background: #2d5a27; }
 body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-link:hover { background: #1b4d2e; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .no-apartments,
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .error-message { color: #3d5c3a; padding: 48px 24px; }
-body[data-theme="stanford-apartments"] #stanford-apartments-tab .error-message { color: #c53030; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-placeholder,
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-wrap,
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-wrap { background: #e8ebe6; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-link { color: #2d5a27; }
 
-/* Zillow-style apartments container and cards (SF + Stanford area) */
+/* Listings tabs: layout and stats (card styles from base .apartment-card) */
 #apartments-tab .apartments-container,
 #stanford-apartments-tab .apartments-container {
   max-width: 1280px;
   margin: 0 auto;
 }
 #apartments-tab .apartments-header,
-#stanford-apartments-tab .apartments-header {
-  margin-bottom: 24px;
-}
+#stanford-apartments-tab .apartments-header { margin-bottom: var(--space-6); }
 #apartments-tab .apartments-title,
 #stanford-apartments-tab .apartments-title {
-  font-family: "DM Sans", -apple-system, sans-serif;
+  font-family: var(--font);
   font-weight: 700;
-  font-size: 1.75rem;
-  color: #1a1a1a;
+  font-size: 1.5rem;
+  color: var(--text);
   letter-spacing: -0.02em;
 }
 #apartments-tab .range-subtitle,
-#stanford-apartments-tab .range-subtitle { color: #6b7280; font-size: 0.9375rem; }
+#stanford-apartments-tab .range-subtitle { color: var(--text-secondary); font-size: 0.9375rem; }
 #apartments-tab .refresh-btn,
-#stanford-apartments-tab .refresh-btn { background: #006aff; color: #fff; border-radius: 6px; font-weight: 600; padding: 10px 20px; font-size: 0.9375rem; }
+#stanford-apartments-tab .refresh-btn {
+  background: var(--text);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  padding: var(--space-3) var(--space-5);
+  font-size: 0.875rem;
+}
 #apartments-tab .refresh-btn:hover:not(:disabled),
-#stanford-apartments-tab .refresh-btn:hover:not(:disabled) { background: #0052cc; }
+#stanford-apartments-tab .refresh-btn:hover:not(:disabled) { filter: brightness(0.92); }
 #apartments-tab .refresh-btn:disabled,
-#stanford-apartments-tab .refresh-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+#stanford-apartments-tab .refresh-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 #apartments-tab .apartments-filters,
-#stanford-apartments-tab .apartments-filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+#stanford-apartments-tab .apartments-filters { display: flex; gap: var(--space-3); margin-bottom: var(--space-5); flex-wrap: wrap; }
 #apartments-tab .apartments-filters select,
-#stanford-apartments-tab .apartments-filters select { padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.875rem; background: #fff; color: #374151; min-width: 140px; }
+#stanford-apartments-tab .apartments-filters select {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 140px;
+}
 #apartments-tab .apartments-filters select:focus,
-#stanford-apartments-tab .apartments-filters select:focus { border-color: #006aff; outline: none; }
+#stanford-apartments-tab .apartments-filters select:focus { border-color: var(--text); outline: none; }
 #apartments-tab .apartments-stats,
-#stanford-apartments-tab .apartments-stats { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; display: flex; gap: 32px; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); }
+#stanford-apartments-tab .apartments-stats {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-6);
+  display: flex;
+  gap: var(--space-8);
+  box-shadow: var(--shadow-sm);
+}
 #apartments-tab .apartments-stats .stat-label,
-#stanford-apartments-tab .apartments-stats .stat-label { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+#stanford-apartments-tab .apartments-stats .stat-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
 #apartments-tab .apartments-stats .stat-value,
-#stanford-apartments-tab .apartments-stats .stat-value { font-size: 1.5rem; font-weight: 700; color: #006aff; }
+#stanford-apartments-tab .apartments-stats .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--text); }
 #apartments-tab .apartments-grid,
-#stanford-apartments-tab .apartments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
-#apartments-tab .apartment-card,
-#stanford-apartments-tab .apartment-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; padding: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); transition: box-shadow 0.2s, transform 0.2s; }
-#apartments-tab .apartment-card:hover,
-#stanford-apartments-tab .apartment-card:hover { box-shadow: 0 8px 24px rgba(0, 106, 255, 0.12); transform: translateY(-2px); }
-#apartments-tab .apt-photo-placeholder,
-#stanford-apartments-tab .apt-photo-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; background: linear-gradient(180deg, #e5e7eb 0%, #d1d5db 100%); color: #9ca3af; gap: 8px; }
-#apartments-tab .apt-photo-wrap,
-#stanford-apartments-tab .apt-photo-wrap { height: 200px; overflow: hidden; background: #e5e7eb; }
-#apartments-tab .apt-thumbnail-link,
-#stanford-apartments-tab .apt-thumbnail-link { display: block; height: 100%; text-decoration: none; }
-#apartments-tab .apt-thumbnail,
-#stanford-apartments-tab .apt-thumbnail { width: 100%; height: 200px; object-fit: cover; vertical-align: top; }
-#apartments-tab .apt-map-wrap,
-#stanford-apartments-tab .apt-map-wrap { position: relative; height: 200px; overflow: hidden; background: #e5e7eb; }
-#apartments-tab .apt-map-iframe,
-#stanford-apartments-tab .apt-map-iframe { width: 100%; height: 100%; border: 0; pointer-events: none; }
-#apartments-tab .apt-map-label,
-#stanford-apartments-tab .apt-map-label { position: absolute; bottom: 0; left: 0; right: 0; padding: 8px 12px; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); color: #fff; font-size: 0.8125rem; font-weight: 500; }
-#apartments-tab .apt-location-placeholder .apt-photo-sub,
-#stanford-apartments-tab .apt-location-placeholder .apt-photo-sub { font-size: 0.75rem; opacity: 0.85; }
-#apartments-tab .apt-map-link,
-#stanford-apartments-tab .apt-map-link { margin-top: 6px; font-size: 0.75rem; color: #006aff; text-decoration: none; font-weight: 500; }
-#apartments-tab .apt-map-link:hover,
-#stanford-apartments-tab .apt-map-link:hover { text-decoration: underline; }
-#apartments-tab .apt-photo-icon,
-#stanford-apartments-tab .apt-photo-icon { font-size: 48px; opacity: 0.7; }
-#apartments-tab .apt-photo-text,
-#stanford-apartments-tab .apt-photo-text { font-size: 0.8125rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
-#apartments-tab .apartment-card .deal-badge,
-#stanford-apartments-tab .apartment-card .deal-badge { top: 12px; right: 12px; border-radius: 6px; font-size: 0.8125rem; font-weight: 700; padding: 6px 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
-#apartments-tab .apartment-card .apt-header,
-#stanford-apartments-tab .apartment-card .apt-header { padding: 16px 20px 12px; margin-bottom: 0; }
-#apartments-tab .apartment-card .apt-title,
-#stanford-apartments-tab .apartment-card .apt-title { font-size: 1rem; font-weight: 600; color: #1a1a1a; line-height: 1.4; padding-right: 70px; margin: 0 0 8px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-#apartments-tab .apartment-card .apt-price,
-#stanford-apartments-tab .apartment-card .apt-price { font-size: 1.5rem; font-weight: 700; color: #006aff; margin: 0; }
-#apartments-tab .apartment-card .apt-details,
-#stanford-apartments-tab .apartment-card .apt-details { padding: 0 20px 12px; margin-bottom: 0; gap: 10px; flex-wrap: wrap; }
-#apartments-tab .apartment-card .apt-detail,
-#stanford-apartments-tab .apartment-card .apt-detail { font-size: 0.8125rem; color: #6b7280; }
-#apartments-tab .apartment-card .apt-metrics,
-#stanford-apartments-tab .apartment-card .apt-metrics { margin: 0 20px 16px; padding: 12px 14px; background: #f8fafc; border-radius: 6px; border: 1px solid #e5e7eb; }
-#apartments-tab .apartment-card .apt-metrics .metric-label,
-#stanford-apartments-tab .apartment-card .apt-metrics .metric-label { color: #6b7280; font-size: 0.6875rem; }
-#apartments-tab .apartment-card .apt-metrics .metric-value,
-#stanford-apartments-tab .apartment-card .apt-metrics .metric-value { font-size: 0.9375rem; color: #1a1a1a; }
-#apartments-tab .apartment-card .apt-metrics .metric-value.positive,
-#stanford-apartments-tab .apartment-card .apt-metrics .metric-value.positive { color: #0d9488; }
-#apartments-tab .apartment-card .apt-metrics .metric-value.negative,
-#stanford-apartments-tab .apartment-card .apt-metrics .metric-value.negative { color: #dc2626; }
-#apartments-tab .apartment-card .apt-metrics .metric-value.neutral,
-#stanford-apartments-tab .apartment-card .apt-metrics .metric-value.neutral { color: #6b7280; }
-#apartments-tab .apartment-card .apt-analysis,
-#stanford-apartments-tab .apartment-card .apt-analysis { margin: 0 20px 16px; padding: 12px 14px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #006aff; font-size: 0.8125rem; line-height: 1.5; color: #374151; font-style: normal; }
-#apartments-tab .apartment-card .apt-link,
-#stanford-apartments-tab .apartment-card .apt-link { display: block; margin: 0 20px 20px; padding: 12px 20px; background: #006aff; color: #fff; text-align: center; border-radius: 6px; font-weight: 600; font-size: 0.9375rem; text-decoration: none; transition: background 0.2s; }
-#apartments-tab .apartment-card .apt-link:hover,
-#stanford-apartments-tab .apartment-card .apt-link:hover { background: #0052cc; }
+#stanford-apartments-tab .apartments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-6);
+}
 #apartments-tab .no-apartments,
-#apartments-tab .error-message,
 #stanford-apartments-tab .no-apartments,
-#stanford-apartments-tab .error-message { color: #6b7280; padding: 48px 24px; }
 #apartments-tab .error-message,
-#stanford-apartments-tab .error-message { color: #dc2626; }
+#stanford-apartments-tab .error-message { padding: var(--space-10) var(--space-5); }
+#apartments-tab .error-message,
+#stanford-apartments-tab .error-message { color: var(--down); }
 
 /* Site footer (dashboard + legal pages) */
 .site-footer {
-  margin-top: 32px;
-  padding: 16px 0;
+  margin-top: var(--space-8);
+  padding: var(--space-4) 0;
   border-top: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
-  gap: 16px 24px;
-  font-size: 0.875rem;
+  gap: var(--space-4) var(--space-6);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 .site-footer a {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-decoration: none;
 }
 .site-footer a:hover {
@@ -1137,11 +1161,11 @@ body[data-theme="stanford-apartments"] #stanford-apartments-tab .error-message {
 .legal-page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 24px 0;
+  padding: var(--space-6) 0;
 }
-.legal-page h2 { margin-top: 0; font-size: 1.5rem; }
-.legal-page h3 { margin-top: 1.5em; font-size: 1.1rem; }
-.legal-page p, .legal-page ul { color: var(--text-muted); }
+.legal-page h2 { margin-top: 0; font-size: 1.5rem; color: var(--text); }
+.legal-page h3 { margin-top: 1.5em; font-size: 1.1rem; color: var(--text); }
+.legal-page p, .legal-page ul { color: var(--text-secondary); }
 .legal-page a { color: var(--accent); text-decoration: none; }
 .legal-page a:hover { text-decoration: underline; }
 .legal-page ul { padding-left: 1.25em; }

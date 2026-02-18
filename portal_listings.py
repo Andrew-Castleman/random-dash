@@ -10,6 +10,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 import requests
 
@@ -28,6 +29,10 @@ MAX_MONTHLY_CALLS = 50
 
 # Persistent cache path (survives restarts so deploys don't burn calls)
 _CACHE_FILE = os.environ.get("PORTAL_CACHE_FILE", "").strip() or (Path(__file__).resolve().parent / "data" / "portal_listings_cache.json")
+
+# Optional: static map image URL for card thumbnails. Use {lat} and {lon} placeholders.
+# Example (Mapbox): https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-l+ff0000({lon},{lat})/{lon},{lat},14,0/400x200@2x?access_token=YOUR_TOKEN
+STATIC_MAP_URL_TEMPLATE = os.environ.get("STATIC_MAP_URL_TEMPLATE", "").strip()
 
 # Initialize cache structures BEFORE loading persistent cache
 _cache: dict[str, tuple[list[dict], float]] = {}
@@ -56,7 +61,9 @@ def _load_persistent_cache() -> None:
         with _cache_lock:
             for k, v in data.items():
                 if isinstance(v, dict) and "entries" in v and "ts" in v:
-                    _cache[k] = (v["entries"], float(v["ts"]))
+                    ent = v["entries"]
+                    if isinstance(ent, list) and ent:
+                        _cache[k] = (ent, float(v["ts"]))
         logger.info("Loaded portal listings cache from %s (%s keys)", path, len(_cache))
     except Exception as e:
         logger.warning("Could not load portal cache file %s: %s", path, e)
@@ -99,14 +106,28 @@ def _rate_limit(region: str) -> None:
 
 
 def _is_publicly_listed(item: dict[str, Any]) -> bool:
-    """Only include listings that are currently active and publicly listed."""
-    status = (item.get("status") or "").strip()
-    if status.lower() != "active":
+    """Include listings that are active and not removed. Include when status missing (API may omit)."""
+    status = (item.get("status") or "").strip().lower()
+    if status and status != "active":
         return False
-    # Exclude if listing has been removed (no longer current)
     if item.get("removedDate"):
         return False
     return True
+
+
+def _listing_url(item: dict[str, Any], address: str) -> str:
+    """Real listing link: agent site, office site, mailto, or Google search fallback. Never return '#'."""
+    agent = item.get("listingAgent") or {}
+    office = item.get("listingOffice") or {}
+    url = (agent.get("website") or "").strip() or (office.get("website") or "").strip()
+    if url and (url.startswith("http://") or url.startswith("https://")):
+        return url
+    email = (agent.get("email") or office.get("email") or "").strip()
+    if email:
+        return "mailto:" + email
+    # No contact info: link to search so user can find the listing
+    query = quote_plus((address or item.get("city") or "rental") + " rental listing")
+    return "https://www.google.com/search?q=" + query
 
 
 def _normalize(item: dict[str, Any]) -> dict[str, Any]:
@@ -125,15 +146,22 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
         bedrooms = sqft = None
     bathrooms = item.get("bathrooms")
 
-    agent = item.get("listingAgent") or {}
-    office = item.get("listingOffice") or {}
-    url = agent.get("website") or office.get("website") or ""
-    if not url and (agent.get("email") or office.get("email")):
-        url = "mailto:" + (agent.get("email") or office.get("email"))
+    address = item.get("formattedAddress") or item.get("addressLine1") or ""
+    url = _listing_url(item, address)
+
+    lat = item.get("latitude")
+    lon = item.get("longitude")
+    thumbnail_url = None
+    if STATIC_MAP_URL_TEMPLATE and lat is not None and lon is not None:
+        try:
+            thumbnail_url = STATIC_MAP_URL_TEMPLATE.format(lat=float(lat), lon=float(lon))
+        except (KeyError, ValueError):
+            pass
+    # If no template: Rentcast does not provide listing photos; frontend shows interactive map
 
     return {
-        "title": item.get("formattedAddress") or item.get("addressLine1") or "Rental listing",
-        "url": url or "#",
+        "title": address or "Rental listing",
+        "url": url,
         "price": price,
         "neighborhood": item.get("city") or "Unknown",
         "bedrooms": bedrooms,
@@ -147,9 +175,9 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
         "discount_pct": None,
         "laundry_type": None,
         "parking": None,
-        "thumbnail_url": None,
-        "latitude": item.get("latitude"),
-        "longitude": item.get("longitude"),
+        "thumbnail_url": thumbnail_url,
+        "latitude": lat,
+        "longitude": lon,
         "source": "portal",
     }
 
@@ -184,9 +212,15 @@ def _fetch(city: str, state: str, min_price: int, max_price: int, limit: int) ->
         )
         r.raise_for_status()
         data = r.json()
-        raw_list = data if isinstance(data, list) else []
-        # Only include currently active, publicly listed (not removed)
-        result = [it for it in raw_list if _is_publicly_listed(it)]
+        if isinstance(data, list):
+            raw_list = data
+        elif isinstance(data, dict):
+            raw_list = data.get("data") or data.get("results") or data.get("listings") or []
+            if not isinstance(raw_list, list):
+                raw_list = []
+        else:
+            raw_list = []
+        result = [it for it in raw_list if isinstance(it, dict) and _is_publicly_listed(it)]
         
         # Only increment counter on successful API call
         if increment_api_call_count():
@@ -212,7 +246,7 @@ def get_portal_listings_sf(
     with _cache_lock:
         if cache_key in _cache:
             entries, ts = _cache[cache_key]
-            if now - ts < CACHE_TTL:
+            if now - ts < CACHE_TTL and entries:
                 logger.debug("Returning cached SF listings (age: %ss)", int(now - ts))
                 return entries[:max_return]
             stale_entries, stale_ts = entries, ts  # keep for limit fallback
@@ -230,8 +264,11 @@ def get_portal_listings_sf(
     raw = _fetch("San Francisco", "CA", min_price, max_price, max_return)
     entries = [_normalize(it) for it in raw if _is_publicly_listed(it)]
     with _cache_lock:
-        _cache[cache_key] = (entries, time.time())
-    _save_persistent_cache()
+        if entries or cache_key not in _cache:
+            _cache[cache_key] = (entries, time.time())
+            _save_persistent_cache()
+        elif cache_key in _cache:
+            entries, _ = _cache[cache_key]
     return entries[:max_return]
 
 
@@ -246,7 +283,7 @@ def get_portal_listings_stanford(
     with _cache_lock:
         if cache_key in _cache:
             entries, ts = _cache[cache_key]
-            if now - ts < CACHE_TTL:
+            if now - ts < CACHE_TTL and entries:
                 logger.debug("Returning cached Stanford listings (age: %ss)", int(now - ts))
                 return entries[:max_return]
             stale_entries, stale_ts = entries, ts
@@ -281,6 +318,9 @@ def get_portal_listings_stanford(
             all_entries.append(_normalize(it))
     all_entries.sort(key=lambda x: x.get("price") or 0)
     with _cache_lock:
-        _cache[cache_key] = (all_entries, time.time())
-    _save_persistent_cache()
+        if all_entries or cache_key not in _cache:
+            _cache[cache_key] = (all_entries, time.time())
+            _save_persistent_cache()
+        elif cache_key in _cache:
+            all_entries, _ = _cache[cache_key]
     return all_entries[:max_return]
