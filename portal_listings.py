@@ -424,9 +424,9 @@ def _generate_ai_description(apt: dict[str, Any], discount_pct: float, neighborh
         elif sqft_per_bed >= 500:
             parts.append(f"Comfortable {sqft} sqft layout with good space per bedroom.")
     
-    # Bathroom ratio
+    # Bathroom ratio (only notable for 2+ bedrooms)
     bathrooms = apt.get("bathrooms")
-    if bathrooms and bedrooms > 0:
+    if bathrooms and bedrooms and bedrooms > 1:
         bath_ratio = bathrooms / bedrooms
         if bath_ratio >= 1.0:
             parts.append(f"Full bathroom per bedroom ({bathrooms} baths for {bedrooms} beds) — rare convenience.")

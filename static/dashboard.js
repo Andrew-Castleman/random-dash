@@ -557,6 +557,9 @@
   }
 
   function getFilteredAndSortedApartments() {
+    if (!apartmentsData || !apartmentsData.length) {
+      return [];
+    }
     var hoodFilter = document.getElementById("neighborhoodFilter");
     var bedFilter = document.getElementById("bedroomFilter");
     var minPriceFilter = document.getElementById("minPriceFilter");
@@ -565,9 +568,13 @@
     var list = apartmentsData.slice();
     var hoodVal = hoodFilter ? hoodFilter.value : "all";
     var bedVal = bedFilter ? bedFilter.value : "all";
-    var minPrice = minPriceFilter && minPriceFilter.value ? parseInt(minPriceFilter.value, 10) : null;
-    var maxPrice = maxPriceFilter && maxPriceFilter.value ? parseInt(maxPriceFilter.value, 10) : null;
+    var minPrice = minPriceFilter && minPriceFilter.value && minPriceFilter.value.trim() ? parseInt(minPriceFilter.value.trim(), 10) : null;
+    var maxPrice = maxPriceFilter && maxPriceFilter.value && maxPriceFilter.value.trim() ? parseInt(maxPriceFilter.value.trim(), 10) : null;
     var sortVal = sortBy ? sortBy.value : "best-deal";
+    
+    // Validate price inputs
+    if (minPrice !== null && isNaN(minPrice)) minPrice = null;
+    if (maxPrice !== null && isNaN(maxPrice)) maxPrice = null;
 
     // Apply all filters simultaneously
     list = list.filter(function (apt) {
@@ -662,7 +669,6 @@
       if (mapContainer) mapContainer.style.display = "none";
       return null;
     }
-    mapContainer.style.display = "block";
     
     var validListings = listings.filter(function(apt) {
       return apt.latitude != null && apt.longitude != null && 
@@ -674,18 +680,30 @@
       return null;
     }
     
+    mapContainer.style.display = "block";
+    // Clear any existing content
+    mapContainer.innerHTML = "";
+    
     var centerLat = validListings.reduce(function(sum, apt) { return sum + Number(apt.latitude); }, 0) / validListings.length;
     var centerLon = validListings.reduce(function(sum, apt) { return sum + Number(apt.longitude); }, 0) / validListings.length;
     
-    var map = L.map(containerId, {
-      zoomControl: true,
-      scrollWheelZoom: true,
-      doubleClickZoom: true,
-      boxZoom: true,
-      keyboard: true,
-      dragging: true,
-      touchZoom: true
-    }).setView([centerLat, centerLon], 12);
+    // Use setTimeout to ensure container is ready for Leaflet
+    var map = null;
+    try {
+      map = L.map(mapContainer, {
+        zoomControl: true,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
+        boxZoom: true,
+        keyboard: true,
+        dragging: true,
+        touchZoom: true
+      }).setView([centerLat, centerLon], 12);
+    } catch (e) {
+      console.error("Error initializing map:", e);
+      mapContainer.style.display = "none";
+      return null;
+    }
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
@@ -935,6 +953,9 @@
   }
 
   function getFilteredAndSortedStanfordApartments() {
+    if (!stanfordApartmentsData || !stanfordApartmentsData.length) {
+      return [];
+    }
     var hoodFilter = document.getElementById("stanfordNeighborhoodFilter");
     var bedFilter = document.getElementById("stanfordBedroomFilter");
     var minPriceFilter = document.getElementById("stanfordMinPriceFilter");
@@ -943,9 +964,13 @@
     var list = stanfordApartmentsData.slice();
     var hoodVal = hoodFilter ? hoodFilter.value : "all";
     var bedVal = bedFilter ? bedFilter.value : "all";
-    var minPrice = minPriceFilter && minPriceFilter.value ? parseInt(minPriceFilter.value, 10) : null;
-    var maxPrice = maxPriceFilter && maxPriceFilter.value ? parseInt(maxPriceFilter.value, 10) : null;
+    var minPrice = minPriceFilter && minPriceFilter.value && minPriceFilter.value.trim() ? parseInt(minPriceFilter.value.trim(), 10) : null;
+    var maxPrice = maxPriceFilter && maxPriceFilter.value && maxPriceFilter.value.trim() ? parseInt(maxPriceFilter.value.trim(), 10) : null;
     var sortVal = sortBy ? sortBy.value : "best-deal";
+    
+    // Validate price inputs
+    if (minPrice !== null && isNaN(minPrice)) minPrice = null;
+    if (maxPrice !== null && isNaN(maxPrice)) maxPrice = null;
     
     // Apply all filters simultaneously
     list = list.filter(function (apt) {
@@ -990,25 +1015,48 @@
   function renderStanfordApartments(apartments) {
     var container = document.getElementById("stanfordApartmentsList");
     if (!container) return;
-    if (apartments && apartments.length) stanfordApartmentsData = apartments;
-    populateNeighborhoodFilter("stanfordNeighborhoodFilter", stanfordApartmentsData);
+    // Update stanfordApartmentsData if new data provided, otherwise use existing
+    if (apartments && apartments.length) {
+      stanfordApartmentsData = apartments;
+      populateNeighborhoodFilter("stanfordNeighborhoodFilter", stanfordApartmentsData);
+    } else if (!stanfordApartmentsData || !stanfordApartmentsData.length) {
+      // No data available, can't render
+      container.innerHTML = "<div class=\"no-apartments\">No apartment data available. Please refresh.</div>";
+      return;
+    }
+    
     var list = getFilteredAndSortedStanfordApartments();
     container.innerHTML = "";
     if (!list.length) {
-      container.innerHTML = "<div class=\"no-apartments\">No apartments in this range. Try refreshing or adjust filters.</div>";
+      container.innerHTML = "<div class=\"no-apartments\">No apartments found matching your filters. Try adjusting your search criteria.</div>";
       if (window.stanfordMap) {
-        window.stanfordMap.remove();
+        try {
+          window.stanfordMap.remove();
+        } catch (e) {
+          console.debug("Error removing map:", e);
+        }
         window.stanfordMap = null;
       }
-      document.getElementById("stanfordMapContainer").style.display = "none";
+      var mapContainer = document.getElementById("stanfordMapContainer");
+      if (mapContainer) mapContainer.style.display = "none";
       return;
     }
 
+    // Remove existing map before creating new one
     if (window.stanfordMap) {
-      window.stanfordMap.remove();
+      try {
+        window.stanfordMap.remove();
+      } catch (e) {
+        console.debug("Error removing map:", e);
+      }
       window.stanfordMap = null;
     }
-    window.stanfordMap = initializeMap("stanfordMapContainer", list, "apt-card-stanford");
+    
+    // Create map with filtered listings
+    var mapContainer = document.getElementById("stanfordMapContainer");
+    if (mapContainer) {
+      window.stanfordMap = initializeMap("stanfordMapContainer", list, "apt-card-stanford");
+    }
 
     list.forEach(function (apt, index) {
       var card = document.createElement("div");

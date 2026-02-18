@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filtering Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .test-section h3 {
+      margin-top: 0;
+    }
+    .pass { color: green; }
+    .fail { color: red; }
+    .info { color: blue; }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 3px;
+      overflow-x: auto;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 3px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Filtering Functionality Test</h1>
+  <div id="test-results"></div>
+  <button onclick="runTests()">Run Tests</button>
+  <button onclick="loadSampleData()">Load Sample Data</button>
+
+  <script>
+    // Mock data for testing
+    var sampleApartmentsData = [
+      { title: "123 Main St", neighborhood: "Mission", bedrooms: 1, price: 2500, latitude: 37.7599, longitude: -122.4148, deal_score: 65 },
+      { title: "456 Market St", neighborhood: "SoMa", bedrooms: 2, price: 3500, latitude: 37.7786, longitude: -122.4056, deal_score: 70 },
+      { title: "789 Castro St", neighborhood: "Castro", bedrooms: 1, price: 2800, latitude: 37.7609, longitude: -122.4350, deal_score: 55 },
+      { title: "321 Nob Hill", neighborhood: "Nob Hill", bedrooms: 2, price: 4000, latitude: 37.7928, longitude: -122.4155, deal_score: 60 },
+      { title: "654 Marina Blvd", neighborhood: "Marina", bedrooms: 0, price: 2200, latitude: 37.8025, longitude: -122.4364, deal_score: 75 },
+      { title: "987 Sunset Ave", neighborhood: "Sunset", bedrooms: 3, price: 4500, latitude: 37.7540, longitude: -122.5042, deal_score: 68 },
+    ];
+
+    var apartmentsData = [];
+    var testResults = [];
+
+    function log(message, type = 'info') {
+      testResults.push({ message, type, timestamp: new Date().toISOString() });
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+
+    function neighborhoodSlug(name) {
+      if (!name) return "";
+      return name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    }
+
+    function getFilteredAndSortedApartments() {
+      if (!apartmentsData || !apartmentsData.length) {
+        return [];
+      }
+      var hoodFilter = document.getElementById("neighborhoodFilter");
+      var bedFilter = document.getElementById("bedroomFilter");
+      var minPriceFilter = document.getElementById("minPriceFilter");
+      var maxPriceFilter = document.getElementById("maxPriceFilter");
+      var sortBy = document.getElementById("sortBy");
+      var list = apartmentsData.slice();
+      var hoodVal = hoodFilter ? hoodFilter.value : "all";
+      var bedVal = bedFilter ? bedFilter.value : "all";
+      var minPrice = minPriceFilter && minPriceFilter.value && minPriceFilter.value.trim() ? parseInt(minPriceFilter.value.trim(), 10) : null;
+      var maxPrice = maxPriceFilter && maxPriceFilter.value && maxPriceFilter.value.trim() ? parseInt(maxPriceFilter.value.trim(), 10) : null;
+      var sortVal = sortBy ? sortBy.value : "best-deal";
+      
+      // Validate price inputs
+      if (minPrice !== null && isNaN(minPrice)) minPrice = null;
+      if (maxPrice !== null && isNaN(maxPrice)) maxPrice = null;
+
+      // Apply all filters simultaneously
+      list = list.filter(function (apt) {
+        // Neighborhood filter
+        if (hoodVal !== "all") {
+          var slug = neighborhoodSlug(apt.neighborhood);
+          var matchesHood = false;
+          if (hoodVal === "pac-heights") {
+            matchesHood = slug === "pacific-heights" || slug === "pac-heights";
+          } else {
+            matchesHood = slug === hoodVal || slug.indexOf(hoodVal) !== -1 || (apt.neighborhood || "").toLowerCase().indexOf(hoodVal.replace(/-/g, " ")) !== -1;
+          }
+          if (!matchesHood) return false;
+        }
+        
+        // Bedroom filter
+        if (bedVal !== "all") {
+          var b = apt.bedrooms;
+          var matchesBed = false;
+          if (bedVal === "studio") {
+            matchesBed = b === 0;
+          } else if (bedVal === "3") {
+            matchesBed = b >= 3;
+          } else {
+            matchesBed = b === parseInt(bedVal, 10);
+          }
+          if (!matchesBed) return false;
+        }
+        
+        // Price filters
+        var price = apt.price || 0;
+        if (minPrice !== null && price < minPrice) return false;
+        if (maxPrice !== null && price > maxPrice) return false;
+        
+        return true;
+      });
+      
+      // Sort
+      if (sortVal === "best-deal") list.sort(function (a, b) { return (b.deal_score || 0) - (a.deal_score || 0); });
+      else if (sortVal === "price-low") list.sort(function (a, b) { return (a.price || 0) - (b.price || 0); });
+      else if (sortVal === "price-sqft") list.sort(function (a, b) { return (a.price_per_sqft || 999) - (b.price_per_sqft || 999); });
+      else if (sortVal === "newest") list.sort(function (a, b) { return (b.posted_date || "").localeCompare(a.posted_date || ""); });
+      return list;
+    }
+
+    function loadSampleData() {
+      apartmentsData = sampleApartmentsData;
+      log("Loaded " + apartmentsData.length + " sample apartments", "info");
+      document.getElementById("test-results").innerHTML += "<div class='info'>Sample data loaded. Ready to test.</div>";
+    }
+
+    function runTests() {
+      testResults = [];
+      document.getElementById("test-results").innerHTML = "<h2>Test Results</h2>";
+
+      if (!apartmentsData || !apartmentsData.length) {
+        log("ERROR: No apartment data loaded. Click 'Load Sample Data' first.", "fail");
+        displayResults();
+        return;
+      }
+
+      log("Starting filtering tests with " + apartmentsData.length + " apartments", "info");
+
+      // Test 1: No filters (should return all)
+      log("\n=== Test 1: No filters ===", "info");
+      document.getElementById("neighborhoodFilter").value = "all";
+      document.getElementById("bedroomFilter").value = "all";
+      document.getElementById("minPriceFilter").value = "";
+      document.getElementById("maxPriceFilter").value = "";
+      var result1 = getFilteredAndSortedApartments();
+      if (result1.length === apartmentsData.length) {
+        log("PASS: No filters returns all " + result1.length + " apartments", "pass");
+      } else {
+        log("FAIL: Expected " + apartmentsData.length + " apartments, got " + result1.length, "fail");
+      }
+
+      // Test 2: Neighborhood filter only
+      log("\n=== Test 2: Neighborhood filter (Mission) ===", "info");
+      document.getElementById("neighborhoodFilter").value = "mission";
+      document.getElementById("bedroomFilter").value = "all";
+      document.getElementById("minPriceFilter").value = "";
+      document.getElementById("maxPriceFilter").value = "";
+      var result2 = getFilteredAndSortedApartments();
+      var expected2 = apartmentsData.filter(a => a.neighborhood.toLowerCase().includes("mission"));
+      if (result2.length === expected2.length && result2.every(a => a.neighborhood.toLowerCase().includes("mission"))) {
+        log("PASS: Neighborhood filter returns " + result2.length + " Mission apartments", "pass");
+      } else {
+        log("FAIL: Expected " + expected2.length + " Mission apartments, got " + result2.length, "fail");
+      }
+
+      // Test 3: Bedroom filter only
+      log("\n=== Test 3: Bedroom filter (2 bedrooms) ===", "info");
+      document.getElementById("neighborhoodFilter").value = "all";
+      document.getElementById("bedroomFilter").value = "2";
+      document.getElementById("minPriceFilter").value = "";
+      document.getElementById("maxPriceFilter").value = "";
+      var result3 = getFilteredAndSortedApartments();
+      var expected3 = apartmentsData.filter(a => a.bedrooms === 2);
+      if (result3.length === expected3.length && result3.every(a => a.bedrooms === 2)) {
+        log("PASS: Bedroom filter returns " + result3.length + " 2-bedroom apartments", "pass");
+      } else {
+        log("FAIL: Expected " + expected3.length + " 2-bedroom apartments, got " + result3.length, "fail");
+      }
+
+      // Test 4: Studio filter
+      log("\n=== Test 4: Studio filter ===", "info");
+      document.getElementById("neighborhoodFilter").value = "all";
+      document.getElementById("bedroomFilter").value = "studio";
+      document.getElementById("minPriceFilter").value = "";
+      document.getElementById("maxPriceFilter").value = "";
+      var result4 = getFilteredAndSortedApartments();
+      var expected4 = apartmentsData.filter(a => a.bedrooms === 0);
+      if (result4.length === expected4.length && result4.every(a => a.bedrooms === 0)) {
+        log("PASS: Studio filter returns " + result4.length + " studio apartments", "pass");
+      } else {
+        log("FAIL: Expected " + expected4.length + " studios, got " + result4.length, "fail");
+      }
+
+      // Test 5: Price filter (min only)
+      log("\n=== Test 5: Min price filter ($3000) ===", "info");
+      document.getElementById("neighborhoodFilter").value = "all";
+      document.getElementById("bedroomFilter").value = "all";
+      document.getElementById("minPriceFilter").value = "3000";
+      document.getElementById("maxPriceFilter").value = "";
+      var result5 = getFilteredAndSortedApartments();
+      var expected5 = apartmentsData.filter(a => a.price >= 3000);
+      if (result5.length === expected5.length && result5.every(a => a.price >= 3000)) {
+        log("PASS: Min price filter returns " + result5.length + " apartments >= $3000", "pass");
+      } else {
+        log("FAIL: Expected " + expected5.length + " apartments >= $3000, got " + result5.length, "fail");
+      }
+
+      // Test 6: Price filter (max only)
+      log("\n=== Test 6: Max price filter ($3000) ===", "info");
+      document.getElementById("neighborhoodFilter").value = "all";
+      document.getElementById("bedroomFilter").value = "all";
+      document.getElementById("minPriceFilter").value = "";
+      document.getElementById("maxPriceFilter").value = "3000";
+      var result6 = getFilteredAndSortedApartments();
+      var expected6 = apartmentsData.filter(a => a.price <= 3000);
+      if (result6.length === expected6.length && result6.every(a => a.price <= 3000)) {
+        log("PASS: Max price filter returns " + result6.length + " apartments <= $3000", "pass");
+      } else {
+        log("FAIL: Expected " + expected6.length + " apartments <= $3000, got " + result6.length, "fail");
+      }
+
+      // Test 7: Multiple filters combined (neighborhood + bedroom + price)
+      log("\n=== Test 7: Multiple filters (Mission + 1BR + $2000-$3000) ===", "info");
+      document.getElementById("neighborhoodFilter").value = "mission";
+      document.getElementById("bedroomFilter").value = "1";
+      document.getElementById("minPriceFilter").value = "2000";
+      document.getElementById("maxPriceFilter").value = "3000";
+      var result7 = getFilteredAndSortedApartments();
+      var expected7 = apartmentsData.filter(a => 
+        a.neighborhood.toLowerCase().includes("mission") && 
+        a.bedrooms === 1 && 
+        a.price >= 2000 && 
+        a.price <= 3000
+      );
+      if (result7.length === expected7.length) {
+        var allMatch = result7.every(a => 
+          a.neighborhood.toLowerCase().includes("mission") && 
+          a.bedrooms === 1 && 
+          a.price >= 2000 && 
+          a.price <= 3000
+        );
+        if (allMatch) {
+          log("PASS: Multiple filters return " + result7.length + " matching apartments", "pass");
+        } else {
+          log("FAIL: Results don't match all filter criteria", "fail");
+        }
+      } else {
+        log("FAIL: Expected " + expected7.length + " apartments, got " + result7.length, "fail");
+      }
+
+      // Test 8: Price range filter
+      log("\n=== Test 8: Price range ($2500-$3500) ===", "info");
+      document.getElementById("neighborhoodFilter").value = "all";
+      document.getElementById("bedroomFilter").value = "all";
+      document.getElementById("minPriceFilter").value = "2500";
+      document.getElementById("maxPriceFilter").value = "3500";
+      var result8 = getFilteredAndSortedApartments();
+      var expected8 = apartmentsData.filter(a => a.price >= 2500 && a.price <= 3500);
+      if (result8.length === expected8.length && result8.every(a => a.price >= 2500 && a.price <= 3500)) {
+        log("PASS: Price range filter returns " + result8.length + " apartments", "pass");
+      } else {
+        log("FAIL: Expected " + expected8.length + " apartments in range, got " + result8.length, "fail");
+      }
+
+      // Test 9: Empty result set
+      log("\n=== Test 9: Filters that return no results ===", "info");
+      document.getElementById("neighborhoodFilter").value = "mission";
+      document.getElementById("bedroomFilter").value = "3";
+      document.getElementById("minPriceFilter").value = "5000";
+      document.getElementById("maxPriceFilter").value = "6000";
+      var result9 = getFilteredAndSortedApartments();
+      if (result9.length === 0) {
+        log("PASS: Correctly returns empty array when no matches", "pass");
+      } else {
+        log("FAIL: Expected 0 results, got " + result9.length, "fail");
+      }
+
+      displayResults();
+    }
+
+    function displayResults() {
+      var html = "<div class='test-section'><h3>Test Output</h3><pre>";
+      testResults.forEach(function(result) {
+        var className = result.type === 'pass' ? 'pass' : (result.type === 'fail' ? 'fail' : 'info');
+        html += "<span class='" + className + "'>" + result.message + "</span>\n";
+      });
+      html += "</pre></div>";
+
+      var passCount = testResults.filter(r => r.type === 'pass').length;
+      var failCount = testResults.filter(r => r.type === 'fail').length;
+      var totalTests = passCount + failCount;
+
+      html += "<div class='test-section'><h3>Summary</h3>";
+      html += "<p><span class='pass'>Passed: " + passCount + "</span></p>";
+      html += "<p><span class='fail'>Failed: " + failCount + "</span></p>";
+      html += "<p>Total: " + totalTests + " tests</p></div>";
+
+      document.getElementById("test-results").innerHTML = html;
+    }
+
+    // Create filter elements for testing
+    window.onload = function() {
+      var container = document.createElement('div');
+      container.innerHTML = `
+        <div style="margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px;">
+          <h3>Test Filters</h3>
+          <label>Neighborhood: <select id="neighborhoodFilter">
+            <option value="all">All Areas</option>
+            <option value="mission">Mission</option>
+            <option value="soma">SoMa</option>
+            <option value="castro">Castro</option>
+            <option value="nob-hill">Nob Hill</option>
+            <option value="marina">Marina</option>
+            <option value="sunset">Sunset</option>
+          </select></label><br><br>
+          <label>Bedrooms: <select id="bedroomFilter">
+            <option value="all">All Bedrooms</option>
+            <option value="studio">Studio</option>
+            <option value="1">1 Bedroom</option>
+            <option value="2">2 Bedrooms</option>
+            <option value="3">3+ Bedrooms</option>
+          </select></label><br><br>
+          <label>Min Price: <input type="number" id="minPriceFilter" placeholder="2000"></label><br><br>
+          <label>Max Price: <input type="number" id="maxPriceFilter" placeholder="5000"></label><br><br>
+          <label>Sort: <select id="sortBy">
+            <option value="best-deal">Best Deal Score</option>
+            <option value="price-low">Lowest Price</option>
+          </select></label>
+        </div>
+      `;
+      document.body.insertBefore(container, document.getElementById("test-results"));
+    };
+  </script>
+</body>
+</html>
