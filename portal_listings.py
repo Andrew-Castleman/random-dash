@@ -29,6 +29,12 @@ MAX_MONTHLY_CALLS = 50
 # Persistent cache path (survives restarts so deploys don't burn calls)
 _CACHE_FILE = os.environ.get("PORTAL_CACHE_FILE", "").strip() or (Path(__file__).resolve().parent / "data" / "portal_listings_cache.json")
 
+# Initialize cache structures BEFORE loading persistent cache
+_cache: dict[str, tuple[list[dict], float]] = {}
+_cache_lock = threading.Lock()
+_last_request: dict[str, float] = {}
+_request_lock = threading.Lock()
+
 # Initialize: reset counter if new month
 reset_monthly_api_counter_if_needed()
 
@@ -79,11 +85,6 @@ def get_api_usage_info() -> dict[str, Any]:
         "remaining_calls": max(0, MAX_MONTHLY_CALLS - count),
         "limit_reached": count >= MAX_MONTHLY_CALLS,
     }
-
-_cache: dict[str, tuple[list[dict], float]] = {}
-_cache_lock = threading.Lock()
-_last_request: dict[str, float] = {}
-_request_lock = threading.Lock()
 
 
 def _rate_limit(region: str) -> None:
