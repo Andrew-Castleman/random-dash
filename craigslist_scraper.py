@@ -41,6 +41,140 @@ except Exception:
     _anthropic = None
 
 
+def inspect_craigslist_structure():
+    """
+    Debug function to examine current Craigslist HTML structure.
+    Finds and prints all price-related elements to determine correct selectors.
+    """
+    url = f"{CL_SEARCH_URL}?min_price={MIN_PRICE}&max_price={MAX_PRICE}&availabilityMode=0"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Length: {len(response.text)} characters")
+        if SCRAPER_DEBUG:
+            try:
+                with open("/tmp/craigslist_full.html", "w", encoding="utf-8") as f:
+                    f.write(response.text)
+                print("\nSaved full HTML to: /tmp/craigslist_full.html")
+            except OSError:
+                pass
+        soup = BeautifulSoup(response.text, "html.parser")
+        print("\n" + "=" * 60)
+        print("SEARCHING FOR PRICE ELEMENTS")
+        print("=" * 60)
+        price_classes = ["price", "priceinfo", "result-price", "meta", "price-tag", "result-meta"]
+        for class_name in price_classes:
+            elements = soup.find_all(class_=class_name)
+            print(f"\nClass '{class_name}': {len(elements)} found")
+            if elements:
+                print(f"  First example text: {elements[0].get_text().strip()[:50]}")
+                print(f"  First example HTML: {str(elements[0])[:150]}")
+        all_spans = soup.find_all("span")
+        price_spans = [s for s in all_spans if "$" in (s.get_text() or "")]
+        print(f"\n<span> elements with '$': {len(price_spans)} found")
+        if price_spans:
+            for span in price_spans[:3]:
+                print(f"    - Class: {span.get('class')} | Text: {span.get_text().strip()}")
+        all_divs = soup.find_all("div")
+        price_divs = [d for d in all_divs if "$" in (d.get_text() or "") and len(d.get_text() or "") < 30]
+        print(f"\n<div> elements with '$' (short text): {len(price_divs)} found")
+        if price_divs:
+            for div in price_divs[:3]:
+                print(f"    - Class: {div.get('class')} | Text: {(div.get_text() or '').strip()}")
+        print("\n" + "=" * 60)
+        print("SEARCHING FOR LISTING CONTAINERS")
+        print("=" * 60)
+        container_classes = ["result-row", "cl-search-result", "cl-static-search-result", "result", "gallery-card"]
+        for class_name in container_classes:
+            containers = soup.find_all("li", class_=class_name)
+            print(f"\nClass 'li.{class_name}': {len(containers)} found")
+            if containers:
+                print(f"  First listing preview (first 400 chars):")
+                print(f"  {str(containers[0])[:400]}")
+        print("\n" + "=" * 60)
+        print("FIRST COMPLETE LISTING EXAMPLE")
+        print("=" * 60)
+        first_listing = (
+            soup.find("li", class_="result-row")
+            or soup.find("li", class_="cl-search-result")
+            or soup.find("li", class_=lambda x: x and ("result" in str(x).lower() or "search" in str(x).lower()))
+        )
+        if first_listing:
+            print(f"\nFull HTML of first listing (first 1000 chars):\n")
+            print(first_listing.prettify()[:1000])
+        else:
+            print("\nNo listing found - Craigslist structure may have changed significantly")
+        return response.text
+    except Exception as e:
+        print(f"\nError during inspection: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def debug_first_listing():
+    """
+    Debug price extraction on the very first listing.
+    Shows exactly what elements exist and which extraction method works.
+    """
+    url = f"{CL_SEARCH_URL}?min_price={MIN_PRICE}&max_price={MAX_PRICE}&availabilityMode=0"
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+    response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+    soup = BeautifulSoup(response.text, "html.parser")
+    listing = (
+        soup.find("li", class_="result-row")
+        or soup.find("li", class_="cl-search-result")
+        or soup.find("li", class_="cl-static-search-result")
+        or soup.find("li", class_=lambda x: x and "result" in str(x).lower())
+    )
+    if not listing:
+        print("ERROR: Could not find any listing container")
+        return
+    print("=" * 60)
+    print("FIRST LISTING - PRICE EXTRACTION DEBUG")
+    print("=" * 60)
+    print(f"\nListing container class: {listing.get('class')}")
+    print("\n--- Strategy 1: span.priceinfo ---")
+    elem = listing.find("span", class_="priceinfo")
+    print(f"Found: {elem}")
+    if elem:
+        print(f"Text: {elem.get_text()}")
+    print("\n--- Strategy 2: span.result-price ---")
+    elem = listing.find("span", class_="result-price")
+    print(f"Found: {elem}")
+    if elem:
+        print(f"Text: {elem.get_text()}")
+    print("\n--- Strategy 3: div.price or span.price ---")
+    elem = listing.find("div", class_="price") or listing.find("span", class_="price")
+    print(f"Found: {elem}")
+    if elem:
+        print(f"Text: {elem.get_text()}")
+    print("\n--- Strategy 4: span.meta ---")
+    elem = listing.find("span", class_="meta")
+    print(f"Found: {elem}")
+    if elem:
+        print(f"Text: {elem.get_text()}")
+    print("\n--- Strategy 5: Any element with 'price' in class name ---")
+    elem = listing.find(class_=lambda x: x and "price" in str(x).lower())
+    print(f"Found: {elem}")
+    if elem:
+        print(f"Text: {elem.get_text()}")
+    print("\n--- Strategy 6: data-price attribute ---")
+    print(f"data-price attribute: {listing.get('data-price')}")
+    print("\n--- Strategy 7: All text content (first 300 chars) ---")
+    print((listing.get_text() or "")[:300])
+    print("\n--- Strategy 8: All dollar amounts in text ---")
+    dollar_amounts = re.findall(r"\$\s*([\d,]+)", listing.get_text() or "")
+    print(f"Found dollar amounts: {dollar_amounts}")
+    print("\n" + "=" * 60)
+    print("FULL LISTING HTML")
+    print("=" * 60)
+    print(listing.prettify())
+
+
 def scrape_sf_apartments(max_listings: int = 50) -> list[dict[str, Any]]:
     """Fetch SF apartments in price range. Tries JSON API, then HTML; returns sample on failure."""
     apartments = scrape_via_json_api()
@@ -392,8 +526,11 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
         for listing in listings[:max_listings]:
             try:
                 apt = parse_listing(listing)
-                if apt and apt.get("price") and MIN_PRICE <= apt["price"] <= MAX_PRICE:
-                    apartments.append(apt)
+                if apt and apt.get("price"):
+                    if MIN_PRICE <= apt["price"] <= MAX_PRICE:
+                        apartments.append(apt)
+                    else:
+                        logger.debug("Price $%s outside range %s-%s", apt["price"], MIN_PRICE, MAX_PRICE)
             except Exception as e:
                 logger.debug("Error parsing listing: %s", e)
 
@@ -468,7 +605,10 @@ def scrape_via_html(max_listings: int = 50) -> list[dict[str, Any]]:
 
 
 def parse_listing(listing):
-    """Parse individual Craigslist listing - handles multiple HTML structures."""
+    """
+    Parse individual Craigslist listing with robust multi-strategy price extraction.
+    Tries 7 different methods to find price from actual HTML elements, then text fallback.
+    """
     try:
         apt = {
             "title": None,
@@ -490,59 +630,146 @@ def parse_listing(listing):
             "latitude": None,
             "longitude": None,
         }
+        # ----- Title and URL -----
         title_elem = (
             listing.find("a", class_="titlestring")
             or listing.find("a", class_="result-title")
+            or listing.find("div", class_="title")
+            or listing.find("a", class_="posting-title")
             or listing.find("a", class_="cl-app-anchor")
-            or listing.find("a", attrs={"data-id": True})
-            or listing.find("a", href=re.compile(r"/sfc/apa/\d+"))
             or listing.find("a", href=re.compile(r"/sfc/apa/.+\d+\.html"))
+            or listing.find("a", href=lambda x: x and "/apa/" in (x or ""))
         )
         if not title_elem:
+            logger.debug("Could not find title element")
             return None
         apt["title"] = (title_elem.get_text() or "").strip()
         apt["url"] = title_elem.get("href", "")
         if apt["url"].startswith("/"):
             apt["url"] = CL_LISTING_BASE + apt["url"]
 
-        price_elem = (
-            listing.find("span", class_="priceinfo")
-            or listing.find("span", class_="result-price")
-            or listing.find(class_=re.compile(r"price", re.I))
-        )
-        if price_elem:
-            m = re.search(r"\$?([\d,]+)", (price_elem.get_text() or ""))
-            if m:
-                apt["price"] = int(m.group(1).replace(",", ""))
-        if not apt["price"]:
-            m = re.search(r"\$([\d,]+)", listing.get_text() or "")
-            if m:
-                apt["price"] = int(m.group(1).replace(",", ""))
-        if not apt["price"]:
-            apt["price"] = extract_price_from_text(listing.get_text() or "") or extract_price_from_text(apt["title"] or "")
+        # ----- Price: multi-strategy from actual elements first -----
+        price = None
+        price_source = None
 
+        # Strategy 1: span.priceinfo
+        if not price:
+            price_elem = listing.find("span", class_="priceinfo")
+            if price_elem:
+                m = re.search(r"\$\s*([\d,]+)", price_elem.get_text() or "")
+                if m:
+                    price = int(m.group(1).replace(",", ""))
+                    price_source = "span.priceinfo"
+
+        # Strategy 2: span.result-price
+        if not price:
+            price_elem = listing.find("span", class_="result-price")
+            if price_elem:
+                m = re.search(r"\$\s*([\d,]+)", price_elem.get_text() or "")
+                if m:
+                    price = int(m.group(1).replace(",", ""))
+                    price_source = "span.result-price"
+
+        # Strategy 3: div.price or span.price
+        if not price:
+            price_elem = listing.find("div", class_="price") or listing.find("span", class_="price")
+            if price_elem and "$" in (price_elem.get_text() or ""):
+                m = re.search(r"\$\s*([\d,]+)", price_elem.get_text() or "")
+                if m:
+                    price = int(m.group(1).replace(",", ""))
+                    price_source = "div/span.price"
+
+        # Strategy 4: span.meta
+        if not price:
+            meta_elem = listing.find("span", class_="meta")
+            if meta_elem and "$" in (meta_elem.get_text() or ""):
+                m = re.search(r"\$\s*([\d,]+)", meta_elem.get_text() or "")
+                if m:
+                    price = int(m.group(1).replace(",", ""))
+                    price_source = "span.meta"
+
+        # Strategy 5: any element with 'price' in class
+        if not price:
+            price_elem = listing.find(class_=lambda x: x and "price" in str(x).lower())
+            if price_elem and "$" in (price_elem.get_text() or ""):
+                m = re.search(r"\$\s*([\d,]+)", price_elem.get_text() or "")
+                if m:
+                    price = int(m.group(1).replace(",", ""))
+                    price_source = "class containing 'price'"
+
+        # Strategy 6: data-price attribute
+        if not price:
+            price_attr = listing.get("data-price")
+            if price_attr:
+                try:
+                    price = int(price_attr)
+                    price_source = "data-price attribute"
+                except (TypeError, ValueError):
+                    pass
+
+        # Strategy 7: first reasonable dollar amount in listing text (4–6 digits)
+        if not price:
+            listing_text = listing.get_text() or ""
+            m = re.search(r"\$\s*([\d,]{4,6})(?!\d)", listing_text)
+            if m:
+                extracted = int(m.group(1).replace(",", ""))
+                if 500 <= extracted <= 15000:
+                    price = extracted
+                    price_source = "text search"
+        if not price:
+            price = extract_price_from_text(listing.get_text() or "") or extract_price_from_text(apt["title"] or "")
+            if price:
+                price_source = "extract_price_from_text"
+
+        if not price:
+            logger.debug("Could not extract price from listing: %s", (apt["title"] or "")[:60])
+            return None
+        if price < 500 or price > 15000:
+            logger.debug("Unrealistic price $%s for listing: %s", price, (apt["title"] or "")[:60])
+            return None
+        apt["price"] = price
+        logger.debug("Extracted price $%s using %s", price, price_source or "fallback")
+
+        # ----- Neighborhood -----
         hood_elem = (
             listing.find("span", class_="supertitle")
             or listing.find("span", class_="result-hood")
             or listing.find("span", class_="meta")
+            or listing.find("span", class_="nearby")
             or listing.find(class_=re.compile(r"hood|neighborhood|location", re.I))
         )
-        apt["neighborhood"] = (hood_elem.get_text() or "").strip("() \n") if hood_elem else "San Francisco"
+        if hood_elem:
+            hood_text = (hood_elem.get_text() or "").strip("() \n")
+            hood_match = re.match(r"^([^0-9]+)", hood_text)
+            apt["neighborhood"] = hood_match.group(1).strip() if hood_match else hood_text[:30]
+        else:
+            title_lower = (apt["title"] or "").lower()
+            for hood in ("mission", "soma", "nob hill", "marina", "sunset", "richmond", "castro", "haight", "pac heights", "inner sunset", "outer sunset"):
+                if hood in title_lower:
+                    apt["neighborhood"] = hood.title()
+                    break
+            if not apt["neighborhood"]:
+                apt["neighborhood"] = "San Francisco"
 
+        # ----- Bedrooms, bathrooms, sqft -----
         housing_elem = listing.find("span", class_="housing")
-        search_text = (housing_elem.get_text() if housing_elem else "") or (listing.get_text() or "")
+        search_text = (housing_elem.get_text() if housing_elem else "") + " " + (apt["title"] or "")
         apt["bedrooms"] = extract_bedrooms(search_text) or extract_bedrooms(apt["title"])
         apt["bathrooms"] = extract_bathrooms(search_text) or extract_bathrooms(apt["title"])
         apt["sqft"] = extract_sqft(search_text) or extract_sqft(apt["title"])
+
+        # ----- Laundry, parking, thumbnail -----
         full_text = (listing.get_text() or "") + " " + (apt["title"] or "")
         apt["laundry_type"] = extract_laundry(full_text)
         apt["parking"] = extract_parking(full_text)
         apt["thumbnail_url"] = _extract_thumbnail_from_listing(listing)
 
-        time_elem = listing.find("time")
+        # ----- Posted date -----
+        time_elem = listing.find("time", class_="result-date") or listing.find("time")
         if time_elem:
             apt["posted_date"] = time_elem.get("datetime") or (time_elem.get_text() or "").strip()
 
+        # ----- Derived metrics -----
         if apt["price"] and apt["sqft"]:
             apt["price_per_sqft"] = round(apt["price"] / apt["sqft"], 2)
         if apt["price"] and apt.get("bedrooms") and apt["bedrooms"] > 0:
@@ -849,3 +1076,27 @@ def get_sample_apartments():
             "discount_pct": None,
         },
     ]
+
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("CRAIGSLIST SCRAPER DEBUG MODE")
+    print("=" * 70)
+    print("\n1. Running HTML structure inspector...")
+    inspect_craigslist_structure()
+    print("\n2. Running detailed first listing debugger...")
+    debug_first_listing()
+    print("\n3. Running full scrape test...")
+    apartments = scrape_sf_apartments(max_listings=10)
+    print(f"\n{'=' * 70}")
+    print(f"RESULTS: Found {len(apartments)} valid apartments")
+    print(f"{'=' * 70}")
+    if apartments:
+        print("\nFirst 3 apartments:")
+        for i, apt in enumerate(apartments[:3], 1):
+            print(f"\n{i}. {(apt.get('title') or '')[:60]}")
+            print(f"   Price: ${apt.get('price')}")
+            print(f"   Neighborhood: {apt.get('neighborhood')}")
+            print(f"   Beds: {apt.get('bedrooms')}, Baths: {apt.get('bathrooms')}, Sqft: {apt.get('sqft')}")
+    else:
+        print("\nNO APARTMENTS FOUND - Check debug output above")
