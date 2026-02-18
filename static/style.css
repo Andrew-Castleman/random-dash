@@ -711,6 +711,41 @@ body {
   border-color: var(--text);
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
 }
+.price-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 120px;
+}
+.price-filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.price-filter-input {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  min-height: 40px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.price-filter-input:hover {
+  border-color: var(--border-strong);
+}
+.price-filter-input:focus {
+  outline: none;
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
+}
+.price-filter-input::placeholder {
+  color: var(--text-muted);
+}
 
 .listings-map-container {
   height: 400px;

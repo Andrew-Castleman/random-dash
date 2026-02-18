@@ -203,62 +203,53 @@ def _infer_neighborhood(address: str, lat: float, lon: float, city: str) -> str:
 
 
 def _listing_url(item: dict[str, Any], address: str) -> str:
-    """Use link from API when available; prioritize Zillow/Redfin/Realtor.com links; else agent/office site, mailto, Google."""
-    # 1. Prefer any direct listing URL from the API (if they add url/link/listingUrl etc.)
-    for key in ("url", "link", "listingUrl", "listingLink", "sourceUrl", "propertyUrl", "listing_url", "mlsUrl"):
+    """Use link from API when available; prioritize direct listing URLs, then agent/office sites, then Google search."""
+    # 1. Check for any direct listing URL fields in the API response
+    # Check top-level fields
+    for key in ("url", "link", "listingUrl", "listingLink", "sourceUrl", "propertyUrl", "listing_url", "mlsUrl", 
+                "listingSourceUrl", "originalUrl", "externalUrl", "listingUrl", "propertyLink"):
         u = (item.get(key) or "").strip()
         if u and (u.startswith("http://") or u.startswith("https://")):
             return u
     
-    # 2. Agent, office, or builder website (from API) - prioritize Zillow/Redfin/Realtor.com
+    # Check nested objects for URL fields
+    for obj_key in ("source", "mls", "listing", "property"):
+        obj = item.get(obj_key)
+        if isinstance(obj, dict):
+            for subkey in ("url", "link", "listingUrl", "sourceUrl", "website"):
+                u = (obj.get(subkey) or "").strip()
+                if u and (u.startswith("http://") or u.startswith("https://")):
+                    return u
+    
+    # 2. Agent, office, or builder website (from API)
     agent = item.get("listingAgent") or {}
     office = item.get("listingOffice") or {}
     builder = item.get("builder") or {}
     
-    # Collect all URLs and prioritize listing sites
+    # Collect all URLs from agent/office/builder
     urls = []
     for source_name, source_dict in [("agent", agent), ("office", office), ("builder", builder)]:
         u = (source_dict.get("website") or "").strip()
         if u and (u.startswith("http://") or u.startswith("https://")):
-            urls.append((u, source_name))
+            urls.append(u)
     
-    # Prioritize: Zillow > Redfin > Realtor.com > other listing sites > generic agent sites
-    listing_sites = ["zillow.com", "redfin.com", "realtor.com", "trulia.com", "apartments.com", "apartmentfinder.com"]
-    prioritized = None
-    other_urls = []
+    # Use first available agent/office website
+    if urls:
+        return urls[0]
     
-    for url, source in urls:
-        url_lower = url.lower()
-        is_listing_site = any(site in url_lower for site in listing_sites)
-        if is_listing_site:
-            # Check if it's a specific listing page (has /rental/ or /homedetails/ or address-like path)
-            if any(pattern in url_lower for pattern in ["/rental/", "/homedetails/", "/property/", "/listing/", "/apartment/"]):
-                prioritized = url
-                break
-            elif not prioritized:  # Keep first listing site URL as fallback
-                prioritized = url
-        else:
-            other_urls.append(url)
-    
-    if prioritized:
-        return prioritized
-    if other_urls:
-        return other_urls[0]  # Return first agent/office website
-    
-    # 3. Try to construct Zillow rental search URL from address (better than Google for rentals)
-    if address:
-        # Use Zillow's rental search with address query
-        zillow_query = quote_plus(address)
-        return f"https://www.zillow.com/homes/{zillow_query}/?propertyType=rental"
-    
-    # 4. Contact email
+    # 3. Contact email as fallback
     email = (agent.get("email") or office.get("email") or "").strip()
     if email:
         return "mailto:" + email
     
-    # 5. Only then fall back to Google search
-    query = quote_plus((address or item.get("city") or "rental") + " rental listing")
-    return "https://www.google.com/search?q=" + query
+    # 4. Fall back to Google search for the address (not Zillow)
+    if address:
+        query = quote_plus(address + " rental listing")
+        return f"https://www.google.com/search?q={query}"
+    
+    # 5. Last resort: generic Google search
+    query = quote_plus((item.get("city") or "") + " rental listing")
+    return f"https://www.google.com/search?q={query}"
 
 
 def _normalize(item: dict[str, Any]) -> dict[str, Any]:
@@ -313,6 +304,16 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
         "latitude": lat,
         "longitude": lon,
         "source": "portal",
+        # Store additional API data for AI descriptions
+        "_api_data": {
+            "propertyType": item.get("propertyType"),
+            "yearBuilt": item.get("yearBuilt"),
+            "lotSize": item.get("lotSize"),
+            "daysOnMarket": item.get("daysOnMarket"),
+            "listingType": item.get("listingType"),
+            "mlsName": item.get("mlsName"),
+            "mlsNumber": item.get("mlsNumber"),
+        },
     }
 
 
@@ -365,6 +366,7 @@ def _score_portal_listing(apt: dict[str, Any], market_rates: dict[str, Any]) -> 
             base += 1
 
     apt["deal_score"] = min(100, max(0, base))
+    # Basic analysis for all listings (will be replaced with AI description for top 25%)
     parts = []
     if discount_pct > 5:
         parts.append(f"~{discount_pct:.0f}% below market for {bed_key} in {neighborhood or 'area'}.")
@@ -378,11 +380,90 @@ def _score_portal_listing(apt: dict[str, Any], market_rates: dict[str, Any]) -> 
         parts.append("Laundry in building.")
     if apt.get("parking"):
         parts.append("Parking.")
-    if baths is not None and bedrooms and baths >= bedrooms:
-        parts.append("Full bath per bedroom.")
-    if sqft and bedrooms and bedrooms > 0 and sqft / bedrooms >= 550:
-        parts.append("Good sqft for bedroom count.")
     apt["deal_analysis"] = " ".join(parts).strip() or "Listed via portal. Contact agent for details."
+
+
+def _generate_ai_description(apt: dict[str, Any], discount_pct: float, neighborhood: str, bed_key: str) -> str:
+    """Generate a robust AI description explaining what makes this listing a better value."""
+    parts = []
+    api_data = apt.get("_api_data", {})
+    
+    # Price value proposition
+    if discount_pct > 10:
+        parts.append(f"Exceptional value: priced {discount_pct:.0f}% below market rate for {bed_key} rentals in {neighborhood}.")
+    elif discount_pct > 5:
+        parts.append(f"Strong value: {discount_pct:.0f}% below typical {bed_key} pricing in {neighborhood}.")
+    else:
+        parts.append(f"Competitively priced at market rate for {bed_key} in {neighborhood}.")
+    
+    # Property details
+    property_type = api_data.get("propertyType")
+    if property_type and property_type != "Apartment":
+        parts.append(f"{property_type} property type offers more space and privacy than standard apartments.")
+    
+    year_built = api_data.get("yearBuilt")
+    if year_built:
+        current_year = 2026  # Update as needed
+        age = current_year - year_built
+        if age <= 5:
+            parts.append(f"Built in {year_built} — modern construction with updated features.")
+        elif age <= 15:
+            parts.append(f"Built in {year_built} — well-maintained, contemporary building.")
+        elif age <= 30:
+            parts.append(f"Built in {year_built} — established building with character.")
+    
+    # Square footage value
+    sqft = apt.get("sqft")
+    bedrooms = apt.get("bedrooms") or 1
+    if sqft and bedrooms > 0:
+        sqft_per_bed = sqft / bedrooms
+        if sqft_per_bed >= 700:
+            parts.append(f"Generous {sqft} sqft ({int(sqft_per_bed)} sqft per bedroom) — significantly above average space.")
+        elif sqft_per_bed >= 600:
+            parts.append(f"Spacious {sqft} sqft ({int(sqft_per_bed)} sqft per bedroom) — above-average living space.")
+        elif sqft_per_bed >= 500:
+            parts.append(f"Comfortable {sqft} sqft layout with good space per bedroom.")
+    
+    # Bathroom ratio
+    bathrooms = apt.get("bathrooms")
+    if bathrooms and bedrooms > 0:
+        bath_ratio = bathrooms / bedrooms
+        if bath_ratio >= 1.0:
+            parts.append(f"Full bathroom per bedroom ({bathrooms} baths for {bedrooms} beds) — rare convenience.")
+        elif bath_ratio >= 0.75:
+            parts.append(f"Excellent bathroom-to-bedroom ratio — minimal sharing.")
+    
+    # Amenities
+    if apt.get("laundry_type") == "in_unit":
+        parts.append("In-unit laundry — premium convenience that saves time and money.")
+    elif apt.get("laundry_type") == "in_building":
+        parts.append("Building laundry facilities — convenient without premium cost.")
+    
+    if apt.get("parking"):
+        parts.append("Parking included — valuable amenity in urban areas, saves $200-400/month.")
+    
+    # Lot size (for houses)
+    lot_size = api_data.get("lotSize")
+    if lot_size and property_type in ("Single Family", "Townhouse"):
+        parts.append(f"Lot size: {lot_size:,} sqft — outdoor space adds significant value.")
+    
+    # Market timing
+    days_on_market = api_data.get("daysOnMarket")
+    if days_on_market:
+        if days_on_market <= 7:
+            parts.append("Recently listed — act quickly on this opportunity.")
+        elif days_on_market >= 60:
+            parts.append(f"On market {days_on_market} days — potential for negotiation.")
+    
+    # Price per sqft context
+    price_per_sqft = apt.get("price_per_sqft")
+    if price_per_sqft:
+        if price_per_sqft < 2.5:
+            parts.append(f"Excellent price per sqft (${price_per_sqft:.2f}) — efficient use of rental budget.")
+        elif price_per_sqft < 3.0:
+            parts.append(f"Reasonable price per sqft (${price_per_sqft:.2f}) — good value for the space.")
+    
+    return " ".join(parts).strip()
 
 
 def _apply_portal_scores(entries: list[dict[str, Any]], get_market_rates: Any) -> None:
@@ -394,6 +475,8 @@ def _apply_portal_scores(entries: list[dict[str, Any]], get_market_rates: Any) -
     except Exception as e:
         logger.warning("Portal scoring: could not get market rates: %s", e)
         return
+    
+    # Score all listings first
     for apt in entries:
         try:
             _score_portal_listing(apt, market_rates)
@@ -402,6 +485,29 @@ def _apply_portal_scores(entries: list[dict[str, Any]], get_market_rates: Any) -
             apt["deal_score"] = 50
             apt["deal_analysis"] = "Listed via portal. Contact agent for details."
             apt["discount_pct"] = None
+    
+    # Identify top 25% by score
+    scored_entries = [apt for apt in entries if apt.get("deal_score") is not None]
+    if not scored_entries:
+        return
+    
+    scored_entries.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
+    top_25_percent_count = max(1, int(len(scored_entries) * 0.25))
+    top_25_threshold = scored_entries[top_25_percent_count - 1].get("deal_score", 0) if top_25_percent_count > 0 else 0
+    
+    # Generate AI descriptions only for top 25%
+    for apt in entries:
+        score = apt.get("deal_score", 0)
+        if score is not None and score >= top_25_threshold and score > 50:
+            try:
+                discount_pct = apt.get("discount_pct", 0) or 0
+                neighborhood = apt.get("neighborhood", "area")
+                bedrooms = apt.get("bedrooms") or 0
+                bed_key = "studio" if bedrooms == 0 else f"{min(bedrooms, 3)}br"
+                apt["deal_analysis"] = _generate_ai_description(apt, discount_pct, neighborhood, bed_key)
+            except Exception as e:
+                logger.debug("AI description generation failed: %s", e)
+                # Keep the basic analysis if AI generation fails
 
 
 def _get_cached_api_count() -> int:

@@ -559,27 +559,53 @@
   function getFilteredAndSortedApartments() {
     var hoodFilter = document.getElementById("neighborhoodFilter");
     var bedFilter = document.getElementById("bedroomFilter");
+    var minPriceFilter = document.getElementById("minPriceFilter");
+    var maxPriceFilter = document.getElementById("maxPriceFilter");
     var sortBy = document.getElementById("sortBy");
     var list = apartmentsData.slice();
     var hoodVal = hoodFilter ? hoodFilter.value : "all";
     var bedVal = bedFilter ? bedFilter.value : "all";
+    var minPrice = minPriceFilter && minPriceFilter.value ? parseInt(minPriceFilter.value, 10) : null;
+    var maxPrice = maxPriceFilter && maxPriceFilter.value ? parseInt(maxPriceFilter.value, 10) : null;
     var sortVal = sortBy ? sortBy.value : "best-deal";
 
-    if (hoodVal !== "all") {
-      list = list.filter(function (apt) {
+    // Apply all filters simultaneously
+    list = list.filter(function (apt) {
+      // Neighborhood filter
+      if (hoodVal !== "all") {
         var slug = neighborhoodSlug(apt.neighborhood);
-        if (hoodVal === "pac-heights") return slug === "pacific-heights" || slug === "pac-heights";
-        return slug === hoodVal || slug.indexOf(hoodVal) !== -1;
-      });
-    }
-    if (bedVal !== "all") {
-      list = list.filter(function (apt) {
+        var matchesHood = false;
+        if (hoodVal === "pac-heights") {
+          matchesHood = slug === "pacific-heights" || slug === "pac-heights";
+        } else {
+          matchesHood = slug === hoodVal || slug.indexOf(hoodVal) !== -1 || (apt.neighborhood || "").toLowerCase().indexOf(hoodVal.replace(/-/g, " ")) !== -1;
+        }
+        if (!matchesHood) return false;
+      }
+      
+      // Bedroom filter
+      if (bedVal !== "all") {
         var b = apt.bedrooms;
-        if (bedVal === "studio") return b === 0;
-        if (bedVal === "3") return b >= 3;
-        return b === parseInt(bedVal, 10);
-      });
-    }
+        var matchesBed = false;
+        if (bedVal === "studio") {
+          matchesBed = b === 0;
+        } else if (bedVal === "3") {
+          matchesBed = b >= 3;
+        } else {
+          matchesBed = b === parseInt(bedVal, 10);
+        }
+        if (!matchesBed) return false;
+      }
+      
+      // Price filters
+      var price = apt.price || 0;
+      if (minPrice !== null && price < minPrice) return false;
+      if (maxPrice !== null && price > maxPrice) return false;
+      
+      return true;
+    });
+    
+    // Sort
     if (sortVal === "best-deal") list.sort(function (a, b) { return (b.deal_score || 0) - (a.deal_score || 0); });
     else if (sortVal === "price-low") list.sort(function (a, b) { return (a.price || 0) - (b.price || 0); });
     else if (sortVal === "price-sqft") list.sort(function (a, b) { return (a.price_per_sqft || 999) - (b.price_per_sqft || 999); });
@@ -826,12 +852,20 @@
     });
   }
 
+  function applyFilters() {
+    renderApartments();
+  }
+
   var neighborhoodFilter = document.getElementById("neighborhoodFilter");
   var bedroomFilter = document.getElementById("bedroomFilter");
+  var minPriceFilter = document.getElementById("minPriceFilter");
+  var maxPriceFilter = document.getElementById("maxPriceFilter");
   var sortBy = document.getElementById("sortBy");
-  if (neighborhoodFilter) neighborhoodFilter.addEventListener("change", function () { renderApartments(); });
-  if (bedroomFilter) bedroomFilter.addEventListener("change", function () { renderApartments(); });
-  if (sortBy) sortBy.addEventListener("change", function () { renderApartments(); });
+  if (neighborhoodFilter) neighborhoodFilter.addEventListener("change", applyFilters);
+  if (bedroomFilter) bedroomFilter.addEventListener("change", applyFilters);
+  if (minPriceFilter) minPriceFilter.addEventListener("input", applyFilters);
+  if (maxPriceFilter) maxPriceFilter.addEventListener("input", applyFilters);
+  if (sortBy) sortBy.addEventListener("change", applyFilters);
 
   // --- Stanford Area Apartments ---
   var stanfordApartmentsData = [];
@@ -903,26 +937,49 @@
   function getFilteredAndSortedStanfordApartments() {
     var hoodFilter = document.getElementById("stanfordNeighborhoodFilter");
     var bedFilter = document.getElementById("stanfordBedroomFilter");
+    var minPriceFilter = document.getElementById("stanfordMinPriceFilter");
+    var maxPriceFilter = document.getElementById("stanfordMaxPriceFilter");
     var sortBy = document.getElementById("stanfordSortBy");
     var list = stanfordApartmentsData.slice();
     var hoodVal = hoodFilter ? hoodFilter.value : "all";
     var bedVal = bedFilter ? bedFilter.value : "all";
+    var minPrice = minPriceFilter && minPriceFilter.value ? parseInt(minPriceFilter.value, 10) : null;
+    var maxPrice = maxPriceFilter && maxPriceFilter.value ? parseInt(maxPriceFilter.value, 10) : null;
     var sortVal = sortBy ? sortBy.value : "best-deal";
-    if (hoodVal !== "all") {
-      list = list.filter(function (apt) {
+    
+    // Apply all filters simultaneously
+    list = list.filter(function (apt) {
+      // Neighborhood filter
+      if (hoodVal !== "all") {
         var slug = neighborhoodSlug(apt.neighborhood);
         var hoodLower = (apt.neighborhood || "").toLowerCase();
-        return slug === hoodVal || slug.indexOf(hoodVal) !== -1 || hoodLower.indexOf(hoodVal.replace(/-/g, " ")) !== -1;
-      });
-    }
-    if (bedVal !== "all") {
-      list = list.filter(function (apt) {
+        var matchesHood = slug === hoodVal || slug.indexOf(hoodVal) !== -1 || hoodLower.indexOf(hoodVal.replace(/-/g, " ")) !== -1;
+        if (!matchesHood) return false;
+      }
+      
+      // Bedroom filter
+      if (bedVal !== "all") {
         var b = apt.bedrooms;
-        if (bedVal === "studio") return b === 0;
-        if (bedVal === "3") return b >= 3;
-        return b === parseInt(bedVal, 10);
-      });
-    }
+        var matchesBed = false;
+        if (bedVal === "studio") {
+          matchesBed = b === 0;
+        } else if (bedVal === "3") {
+          matchesBed = b >= 3;
+        } else {
+          matchesBed = b === parseInt(bedVal, 10);
+        }
+        if (!matchesBed) return false;
+      }
+      
+      // Price filters
+      var price = apt.price || 0;
+      if (minPrice !== null && price < minPrice) return false;
+      if (maxPrice !== null && price > maxPrice) return false;
+      
+      return true;
+    });
+    
+    // Sort
     if (sortVal === "best-deal") list.sort(function (a, b) { return (b.deal_score || 0) - (a.deal_score || 0); });
     else if (sortVal === "price-low") list.sort(function (a, b) { return (a.price || 0) - (b.price || 0); });
     else if (sortVal === "price-sqft") list.sort(function (a, b) { return (a.price_per_sqft || 999) - (b.price_per_sqft || 999); });
@@ -1040,9 +1097,20 @@
   var stanfordNeighborhoodFilter = document.getElementById("stanfordNeighborhoodFilter");
   var stanfordBedroomFilter = document.getElementById("stanfordBedroomFilter");
   var stanfordSortBy = document.getElementById("stanfordSortBy");
-  if (stanfordNeighborhoodFilter) stanfordNeighborhoodFilter.addEventListener("change", function () { renderStanfordApartments(); });
-  if (stanfordBedroomFilter) stanfordBedroomFilter.addEventListener("change", function () { renderStanfordApartments(); });
-  if (stanfordSortBy) stanfordSortBy.addEventListener("change", function () { renderStanfordApartments(); });
+  function applyStanfordFilters() {
+    renderStanfordApartments();
+  }
+
+  var stanfordNeighborhoodFilter = document.getElementById("stanfordNeighborhoodFilter");
+  var stanfordBedroomFilter = document.getElementById("stanfordBedroomFilter");
+  var stanfordMinPriceFilter = document.getElementById("stanfordMinPriceFilter");
+  var stanfordMaxPriceFilter = document.getElementById("stanfordMaxPriceFilter");
+  var stanfordSortBy = document.getElementById("stanfordSortBy");
+  if (stanfordNeighborhoodFilter) stanfordNeighborhoodFilter.addEventListener("change", applyStanfordFilters);
+  if (stanfordBedroomFilter) stanfordBedroomFilter.addEventListener("change", applyStanfordFilters);
+  if (stanfordMinPriceFilter) stanfordMinPriceFilter.addEventListener("input", applyStanfordFilters);
+  if (stanfordMaxPriceFilter) stanfordMaxPriceFilter.addEventListener("input", applyStanfordFilters);
+  if (stanfordSortBy) stanfordSortBy.addEventListener("change", applyStanfordFilters);
 
   // --- SF Listings (alternate) ---
   var apartmentsAltData = [];
