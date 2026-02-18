@@ -513,28 +513,31 @@
 
   // --- SF Apartments (Rentcast portal) ---
   var apartmentsData = [];
-  var PORTAL_FETCH_TIMEOUT_MS = 15000;
+
+  function setListingsProgress(container, text) {
+    if (!container) return;
+    container.innerHTML = "<div class=\"listings-progress\"><span class=\"listings-progress-spinner\" aria-hidden=\"true\"></span><span class=\"listings-progress-text\">" + escapeHtml(text) + "</span></div>";
+  }
 
   function loadApartments() {
     var list = document.getElementById("apartmentsList");
     var btn = document.getElementById("refreshApartments");
-    if (list) list.innerHTML = "<div class=\"widget-loading\">Loading listings…</div>";
+    if (list) setListingsProgress(list, "Requesting listings…");
     if (btn) { btn.disabled = true; btn.textContent = "\uD83D\uDD04 Loading…"; }
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function () { controller.abort(); }, PORTAL_FETCH_TIMEOUT_MS);
-    fetch("/api/apartments/portal", { signal: controller.signal })
-      .then(function (r) { clearTimeout(timeoutId); return r.json(); })
+    fetch("/api/apartments/portal")
+      .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
+        var count = (data.apartments || []).length;
+        if (list) setListingsProgress(list, "Found " + count + " listing" + (count !== 1 ? "s" : "") + ". Loading…");
         apartmentsData = data.apartments || [];
         renderApartments(apartmentsData);
         updateApartmentStats(data.stats || {});
         if (btn) { btn.textContent = "\uD83D\uDD04 Refresh Listings"; btn.disabled = false; }
       })
       .catch(function (err) {
-        clearTimeout(timeoutId);
         console.error("Error loading apartments:", err);
-        if (list) list.innerHTML = "<div class=\"error-message\">" + (err.name === "AbortError" ? "Request timed out. Please try again." : "Error loading apartments. Please try again.") + "</div>";
+        if (list) list.innerHTML = "<div class=\"error-message\">Error loading apartments. Please try again.</div>";
         if (btn) { btn.textContent = "\uD83D\uDD04 Try Again"; btn.disabled = false; }
       });
   }
@@ -732,23 +735,22 @@
   function loadStanfordApartments() {
     var list = document.getElementById("stanfordApartmentsList");
     var btn = document.getElementById("refreshStanfordApartments");
-    if (list) list.innerHTML = "<div class=\"widget-loading\">Loading listings…</div>";
+    if (list) setListingsProgress(list, "Requesting listings…");
     if (btn) { btn.disabled = true; btn.textContent = "\uD83D\uDD04 Loading…"; }
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function () { controller.abort(); }, PORTAL_FETCH_TIMEOUT_MS);
-    fetch("/api/apartments/portal/stanford", { signal: controller.signal })
-      .then(function (r) { clearTimeout(timeoutId); return r.json(); })
+    fetch("/api/apartments/portal/stanford")
+      .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
+        var count = (data.apartments || []).length;
+        if (list) setListingsProgress(list, "Found " + count + " listing" + (count !== 1 ? "s" : "") + ". Loading…");
         stanfordApartmentsData = data.apartments || [];
         renderStanfordApartments(stanfordApartmentsData);
         updateStanfordApartmentStats(data.stats || {});
         if (btn) { btn.textContent = "\uD83D\uDD04 Refresh Listings"; btn.disabled = false; }
       })
       .catch(function (err) {
-        clearTimeout(timeoutId);
         console.error("Error loading Stanford apartments:", err);
-        if (list) list.innerHTML = "<div class=\"error-message\">" + (err.name === "AbortError" ? "Request timed out. Please try again." : "Error loading listings. Please try again.") + "</div>";
+        if (list) list.innerHTML = "<div class=\"error-message\">Error loading listings. Please try again.</div>";
         if (btn) { btn.textContent = "\uD83D\uDD04 Try Again"; btn.disabled = false; }
       });
   }
@@ -981,27 +983,14 @@
         marketHtml = "<div class=\"metric\"><span class=\"metric-label\">vs Market</span><span class=\"metric-value " + marketCls + "\">" + marketLabel + "</span></div>";
       }
       var neighborhoodForMap = (apt.neighborhood || "San Francisco").trim();
-      var lat = apt.latitude != null && apt.longitude != null ? Number(apt.latitude) : null;
-      var lon = apt.latitude != null && apt.longitude != null ? Number(apt.longitude) : null;
-      var defaultSF = [37.7849, -122.4094];
-      if (lat === null || lon === null) {
-        var sfNeighborhoods = { "mission": [37.7599, -122.4148], "soma": [37.7786, -122.4056], "nob hill": [37.7928, -122.4155], "nob-hill": [37.7928, -122.4155], "marina": [37.8025, -122.4364], "sunset": [37.7540, -122.5042], "richmond": [37.7804, -122.4602], "castro": [37.7609, -122.4350], "haight": [37.7699, -122.4464], "haight-ashbury": [37.7699, -122.4464], "pacific heights": [37.7912, -122.4368], "pac-heights": [37.7912, -122.4368], "inner sunset": [37.7543, -122.4650], "san francisco": [37.7849, -122.4094], "sf": [37.7849, -122.4094] };
-        var key = neighborhoodForMap.toLowerCase().replace(/\s+/g, " ").trim().replace(/\s/g, "-");
-        var coords = sfNeighborhoods[key] || sfNeighborhoods[key.replace(/-/g, " ")];
-        if (coords) { lat = coords[0]; lon = coords[1]; } else { lat = defaultSF[0]; lon = defaultSF[1]; }
-      }
       var viewUrl = ensureCraigslistListingUrl(apt.url);
       if (viewUrl === "#" || !viewUrl) viewUrl = "https://sfbay.craigslist.org/search/sfc/apa";
       var photoBox = "";
       if (apt.thumbnail_url) {
         photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
-      } else if (lat !== null && lon !== null) {
-        var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
-        var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
-        photoBox = "<div class=\"apt-map-wrap\"><iframe class=\"apt-map-iframe\" sandbox=\"allow-scripts\" title=\"Map: " + escapeHtml(neighborhoodForMap) + "\" src=\"" + escapeHtml(mapUrl) + "\" loading=\"lazy\"></iframe><div class=\"apt-map-label\">\uD83D\uDCCD " + escapeHtml(neighborhoodForMap) + ", San Francisco</div></div>";
       } else {
         var mapSearchQuery = encodeURIComponent(neighborhoodForMap + ", San Francisco, CA");
-        photoBox = "<div class=\"apt-photo-placeholder apt-location-placeholder\"><span class=\"apt-photo-icon\">\uD83D\uDCCD</span><span class=\"apt-photo-text\">" + escapeHtml(neighborhoodForMap) + "</span><span class=\"apt-photo-sub\">San Francisco</span><a href=\"https://www.google.com/maps/search/?api=1&query=" + mapSearchQuery + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-map-link\">View on map</a></div>";
+        photoBox = "<div class=\"apt-photo-placeholder apt-location-placeholder apt-map-approximate\"><span class=\"apt-photo-icon\">\uD83D\uDCCD</span><span class=\"apt-photo-text\">" + escapeHtml(neighborhoodForMap) + "</span><span class=\"apt-photo-sub\">Approximate area (listing has no address). Verify on listing.</span><a href=\"https://www.google.com/maps/search/?api=1&query=" + mapSearchQuery + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-map-link\">Search area on map</a></div>";
       }
       card.innerHTML =
         photoBox +
@@ -1109,14 +1098,10 @@
       var bathStr = apt.bathrooms != null ? apt.bathrooms + " bath" : "";
       var sqftStr = apt.sqft ? apt.sqft + " sqft" : "";
       var neighborhoodForMap = (apt.neighborhood || "Palo Alto").trim();
-      var coords = stanfordCoordsFromNeighborhood(neighborhoodForMap);
-      var lat = apt.latitude != null && apt.longitude != null ? Number(apt.latitude) : coords[0];
-      var lon = apt.latitude != null && apt.longitude != null ? Number(apt.longitude) : coords[1];
       var viewUrl = ensureCraigslistListingUrl(apt.url);
       if (viewUrl === "#" || !viewUrl) viewUrl = "https://sfbay.craigslist.org/search/pen/apa";
-      var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
-      var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
-      var photoBox = "<div class=\"apt-map-wrap\"><iframe class=\"apt-map-iframe\" sandbox=\"allow-scripts\" title=\"Map: " + escapeHtml(neighborhoodForMap) + "\" src=\"" + escapeHtml(mapUrl) + "\" loading=\"lazy\"></iframe><div class=\"apt-map-label\">\uD83D\uDCCD " + escapeHtml(neighborhoodForMap) + "</div></div>";
+      var mapSearchQuery = encodeURIComponent(neighborhoodForMap + ", CA");
+      var photoBox = "<div class=\"apt-photo-placeholder apt-location-placeholder apt-map-approximate\"><span class=\"apt-photo-icon\">\uD83D\uDCCD</span><span class=\"apt-photo-text\">" + escapeHtml(neighborhoodForMap) + "</span><span class=\"apt-photo-sub\">Approximate area (listing has no address). Verify on listing.</span><a href=\"https://www.google.com/maps/search/?api=1&query=" + mapSearchQuery + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-map-link\">Search area on map</a></div>";
       var marketHtml = (apt.discount_pct != null && apt.discount_pct !== undefined) ? "<div class=\"metric\"><span class=\"metric-label\">vs Market</span><span class=\"metric-value " + (apt.discount_pct > 0 ? "positive" : apt.discount_pct < 0 ? "negative" : "neutral") + "\">" + (apt.discount_pct > 0 ? Math.abs(apt.discount_pct).toFixed(0) + "% below market" : apt.discount_pct < 0 ? Math.abs(apt.discount_pct).toFixed(0) + "% above market" : "At market") + "</span></div>" : "";
       card.innerHTML =
         photoBox +

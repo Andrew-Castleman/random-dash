@@ -926,6 +926,7 @@ body {
   font-weight: 500;
 }
 .apt-location-placeholder .apt-photo-sub { font-size: 0.75rem; opacity: 0.85; }
+.apt-map-approximate .apt-photo-sub { font-style: italic; }
 .apt-map-link {
   margin-top: var(--space-2);
   font-size: 0.75rem;
@@ -1137,6 +1138,26 @@ body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-link { 
 #stanford-apartments-tab .error-message { padding: var(--space-10) var(--space-5); }
 #apartments-tab .error-message,
 #stanford-apartments-tab .error-message { color: var(--down); }
+
+/* Real progress (no fake skeletons) */
+.listings-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5);
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+}
+.listings-progress-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+.listings-progress-text { font-weight: 500; }
 
 /* Site footer (dashboard + legal pages) */
 .site-footer {

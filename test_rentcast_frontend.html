@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rentcast Endpoint Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .stat-box {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-box .label {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .stat-box .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Rentcast Portal Endpoint Test</h1>
+    <p>Test the Rentcast API endpoints directly from the browser.</p>
+    
+    <div class="test-section">
+        <h2>SF Listings Endpoint</h2>
+        <button id="testSF">Test /api/apartments/portal</button>
+        <div id="sfStatus"></div>
+        <div id="sfResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Stanford Listings Endpoint</h2>
+        <button id="testStanford">Test /api/apartments/portal/stanford</button>
+        <div id="stanfordStatus"></div>
+        <div id="stanfordResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Both Endpoints</h2>
+        <button id="testBoth">Test Both Endpoints</button>
+    </div>
+
+    <script>
+        function setStatus(elementId, type, message) {
+            const el = document.getElementById(elementId);
+            el.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function showResults(elementId, data) {
+            const el = document.getElementById(elementId);
+            const apartments = data.apartments || [];
+            const stats = data.stats || {};
+            
+            let html = '<div class="stats">';
+            html += `<div class="stat-box"><div class="label">Total Listings</div><div class="value">${stats.total || 0}</div></div>`;
+            html += `<div class="stat-box"><div class="label">Excellent Deals</div><div class="value">${stats.excellent_deals || 0}</div></div>`;
+            html += `<div class="stat-box"><div class="label">Avg Price</div><div class="value">$${(stats.average_price || 0).toLocaleString()}</div></div>`;
+            html += '</div>';
+            
+            if (apartments.length > 0) {
+                html += `<p><strong>Sample listings (showing first 3):</strong></p>`;
+                html += '<ul>';
+                apartments.slice(0, 3).forEach(apt => {
+                    html += `<li><strong>${apt.title || 'N/A'}</strong> - $${(apt.price || 0).toLocaleString()}/mo - ${apt.neighborhood || 'N/A'}</li>`;
+                });
+                html += '</ul>';
+            }
+            
+            html += '<details><summary>Full JSON Response</summary><pre>' + JSON.stringify(data, null, 2) + '</pre></details>';
+            el.innerHTML = html;
+        }
+
+        async function testEndpoint(url, statusId, resultsId, buttonId) {
+            const button = document.getElementById(buttonId);
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Testing...';
+            
+            setStatus(statusId, 'loading', '⏳ Requesting...');
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(url);
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    setStatus(statusId, 'error', `❌ Error: ${data.error}`);
+                    document.getElementById(resultsId).innerHTML = '';
+                } else {
+                    const count = (data.apartments || []).length;
+                    setStatus(statusId, 'success', `✅ Success! Received ${count} listings in ${elapsed}s`);
+                    showResults(resultsId, data);
+                }
+            } catch (error) {
+                setStatus(statusId, 'error', `❌ Error: ${error.message}`);
+                document.getElementById(resultsId).innerHTML = `<pre>${error.stack || error.toString()}</pre>`;
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        document.getElementById('testSF').addEventListener('click', () => {
+            testEndpoint('/api/apartments/portal', 'sfStatus', 'sfResults', 'testSF');
+        });
+
+        document.getElementById('testStanford').addEventListener('click', () => {
+            testEndpoint('/api/apartments/portal/stanford', 'stanfordStatus', 'stanfordResults', 'testStanford');
+        });
+
+        document.getElementById('testBoth').addEventListener('click', () => {
+            testEndpoint('/api/apartments/portal', 'sfStatus', 'sfResults', 'testSF');
+            setTimeout(() => {
+                testEndpoint('/api/apartments/portal/stanford', 'stanfordStatus', 'stanfordResults', 'testStanford');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

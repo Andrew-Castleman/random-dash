@@ -644,6 +644,16 @@ def refresh_stanford_apartments():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/test-rentcast")
+def test_rentcast_page():
+    """Test page for Rentcast endpoints."""
+    test_file = os.path.join(_base_dir, "test_rentcast_frontend.html")
+    if os.path.exists(test_file):
+        with open(test_file, "r") as f:
+            return f.read()
+    return "Test file not found", 404
+
+
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", 5000))
