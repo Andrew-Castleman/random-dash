@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Apartment Deals — SF & Stanford Area</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:wght@400;600&display=swap" rel="stylesheet">
@@ -137,6 +138,7 @@
             <option value="newest">Newest First</option>
           </select>
         </div>
+        <div id="sfMapContainer" class="listings-map-container"></div>
         <div class="apartments-stats">
           <div class="stat">
             <span class="stat-label">Total Listings</span>
@@ -188,6 +190,7 @@
             <option value="newest">Newest First</option>
           </select>
         </div>
+        <div id="stanfordMapContainer" class="listings-map-container"></div>
         <div class="apartments-stats">
           <div class="stat">
             <span class="stat-label">Total Listings</span>
@@ -243,6 +246,14 @@
             <option value="newest">Newest First</option>
           </select>
         </div>
+        <div class="cl-map-notice">
+          <div class="cl-map-notice-content">
+            <span class="cl-map-notice-icon">🗺️</span>
+            <div>
+              <strong>Map Feature:</strong> For interactive maps with precise locations, please visit the listing on Craigslist directly. Click "View Listing" on any card below to access the full Craigslist page with map features.
+            </div>
+          </div>
+        </div>
         <div class="apartments-stats">
           <div class="stat">
             <span class="stat-label">Total Listings</span>
@@ -294,6 +305,14 @@
             <option value="newest">Newest First</option>
           </select>
         </div>
+        <div class="cl-map-notice">
+          <div class="cl-map-notice-content">
+            <span class="cl-map-notice-icon">🗺️</span>
+            <div>
+              <strong>Map Feature:</strong> For interactive maps with precise locations, please visit the listing on Craigslist directly. Click "View Listing" on any card below to access the full Craigslist page with map features.
+            </div>
+          </div>
+        </div>
         <div class="apartments-stats">
           <div class="stat">
             <span class="stat-label">Total Listings</span>
@@ -319,6 +338,7 @@
       <a href="/contact">Contact</a>
     </footer>
   </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

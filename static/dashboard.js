@@ -611,6 +611,105 @@
     }
   }
 
+  function createScoreMarkerHtml(score) {
+    var colors = {
+      excellent: "#00a699",
+      good: "#008489",
+      fair: "#f7b731",
+      poor: "#ff5a5f"
+    };
+    var color = score >= 80 ? colors.excellent : (score >= 65 ? colors.good : (score >= 50 ? colors.fair : colors.poor));
+    var textColor = "#fff";
+    
+    var size = 40;
+    var svg = '<svg width="' + size + '" height="' + size + '" xmlns="http://www.w3.org/2000/svg">' +
+      '<circle cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + (size/2 - 2) + '" fill="' + color + '" stroke="#fff" stroke-width="2"/>' +
+      '<text x="' + (size/2) + '" y="' + (size/2 + 6) + '" text-anchor="middle" fill="' + textColor + '" font-family="Arial, sans-serif" font-size="12" font-weight="bold">' + (score || 0) + '</text>' +
+      '</svg>';
+    
+    return svg;
+  }
+
+  function initializeMap(containerId, listings, cardPrefix) {
+    var mapContainer = document.getElementById(containerId);
+    if (!mapContainer || !listings || !listings.length) {
+      if (mapContainer) mapContainer.style.display = "none";
+      return null;
+    }
+    mapContainer.style.display = "block";
+    
+    var validListings = listings.filter(function(apt) {
+      return apt.latitude != null && apt.longitude != null && 
+             !isNaN(Number(apt.latitude)) && !isNaN(Number(apt.longitude));
+    });
+    
+    if (!validListings.length) {
+      mapContainer.style.display = "none";
+      return null;
+    }
+    
+    var centerLat = validListings.reduce(function(sum, apt) { return sum + Number(apt.latitude); }, 0) / validListings.length;
+    var centerLon = validListings.reduce(function(sum, apt) { return sum + Number(apt.longitude); }, 0) / validListings.length;
+    
+    var map = L.map(containerId, {
+      zoomControl: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      boxZoom: true,
+      keyboard: true,
+      dragging: true,
+      touchZoom: true
+    }).setView([centerLat, centerLon], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+      minZoom: 10
+    }).addTo(map);
+    
+    validListings.forEach(function(apt, index) {
+      var lat = Number(apt.latitude);
+      var lon = Number(apt.longitude);
+      var score = apt.deal_score || 0;
+      var cardId = cardPrefix + "-" + index;
+      
+      var iconHtml = createScoreMarkerHtml(score);
+      var icon = L.divIcon({
+        html: iconHtml,
+        className: "custom-score-marker",
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+        popupAnchor: [0, -20]
+      });
+      
+      var marker = L.marker([lat, lon], { icon: icon }).addTo(map);
+      marker.on("click", function() {
+        var card = document.getElementById(cardId);
+        if (card) {
+          card.scrollIntoView({ behavior: "smooth", block: "center" });
+          card.style.transition = "box-shadow 0.3s";
+          card.style.boxShadow = "0 0 0 4px rgba(0, 166, 153, 0.3)";
+          setTimeout(function() {
+            card.style.boxShadow = "";
+          }, 2000);
+        }
+      });
+      
+      var popupContent = "<div style='font-weight: 600; margin-bottom: 4px;'>" + escapeHtml(apt.title || "Listing") + "</div>" +
+        "<div style='font-size: 0.875rem; color: #666;'>$" + (apt.price ? Number(apt.price).toLocaleString() : "0") + "/mo</div>" +
+        "<div style='font-size: 0.75rem; color: #999; margin-top: 4px;'>Score: " + score + "/100</div>";
+      marker.bindPopup(popupContent);
+    });
+    
+    if (validListings.length > 1) {
+      var bounds = L.latLngBounds(validListings.map(function(apt) {
+        return [Number(apt.latitude), Number(apt.longitude)];
+      }));
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }
+    
+    return map;
+  }
+
   function renderApartments(apartments) {
     var container = document.getElementById("apartmentsList");
     if (!container) return;
@@ -621,12 +720,24 @@
 
     if (!list.length) {
       container.innerHTML = "<div class=\"no-apartments\">No apartments found in the $2,000–$5,000 range. Try refreshing or adjust filters.</div>";
+      if (window.sfMap) {
+        window.sfMap.remove();
+        window.sfMap = null;
+      }
+      document.getElementById("sfMapContainer").style.display = "none";
       return;
     }
 
-    list.forEach(function (apt) {
+    if (window.sfMap) {
+      window.sfMap.remove();
+      window.sfMap = null;
+    }
+    window.sfMap = initializeMap("sfMapContainer", list, "apt-card-sf");
+
+    list.forEach(function (apt, index) {
       var card = document.createElement("div");
       card.className = "apartment-card";
+      card.id = "apt-card-sf-" + index;
       var badgeClass = "deal-badge";
       if (apt.deal_score >= 80) badgeClass += " excellent";
       else if (apt.deal_score >= 65) badgeClass += " good";
@@ -828,11 +939,24 @@
     container.innerHTML = "";
     if (!list.length) {
       container.innerHTML = "<div class=\"no-apartments\">No apartments in this range. Try refreshing or adjust filters.</div>";
+      if (window.stanfordMap) {
+        window.stanfordMap.remove();
+        window.stanfordMap = null;
+      }
+      document.getElementById("stanfordMapContainer").style.display = "none";
       return;
     }
-    list.forEach(function (apt) {
+
+    if (window.stanfordMap) {
+      window.stanfordMap.remove();
+      window.stanfordMap = null;
+    }
+    window.stanfordMap = initializeMap("stanfordMapContainer", list, "apt-card-stanford");
+
+    list.forEach(function (apt, index) {
       var card = document.createElement("div");
       card.className = "apartment-card";
+      card.id = "apt-card-stanford-" + index;
       var badgeClass = "deal-badge";
       if (apt.deal_score >= 80) badgeClass += " excellent";
       else if (apt.deal_score >= 65) badgeClass += " good";

@@ -712,6 +712,85 @@ body {
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
 }
 
+.listings-map-container {
+  height: 400px;
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  background: var(--surface);
+  position: relative;
+}
+.listings-map-container::after {
+  content: "Zoom and pan to explore • Click markers to view listings";
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  background: rgba(255, 255, 255, 0.95);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: var(--shadow-sm);
+  font-weight: 500;
+}
+
+.cl-map-notice {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--accent);
+}
+.cl-map-notice-content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.cl-map-notice-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+.cl-map-notice-content > div {
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+.cl-map-notice-content strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.listings-map-container .leaflet-container {
+  height: 100%;
+  width: 100%;
+  font-family: var(--font);
+}
+.listings-map-container .leaflet-popup-content-wrapper {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.listings-map-container .leaflet-popup-content {
+  margin: var(--space-3);
+  font-size: 0.875rem;
+}
+.custom-score-marker {
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer;
+}
+.custom-score-marker svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  transition: transform 0.2s;
+}
+.custom-score-marker:hover svg {
+  transform: scale(1.1);
+}
+
 .apartments-stats {
   display: flex;
   gap: var(--space-8);

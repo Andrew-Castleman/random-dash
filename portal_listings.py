@@ -203,28 +203,60 @@ def _infer_neighborhood(address: str, lat: float, lon: float, city: str) -> str:
 
 
 def _listing_url(item: dict[str, Any], address: str) -> str:
-    """Use link from API when available; else agent/office/builder site, mailto, Google only as last resort."""
+    """Use link from API when available; prioritize Zillow/Redfin/Realtor.com links; else agent/office site, mailto, Google."""
     # 1. Prefer any direct listing URL from the API (if they add url/link/listingUrl etc.)
-    for key in ("url", "link", "listingUrl", "listingLink", "sourceUrl", "propertyUrl", "listing_url"):
+    for key in ("url", "link", "listingUrl", "listingLink", "sourceUrl", "propertyUrl", "listing_url", "mlsUrl"):
         u = (item.get(key) or "").strip()
         if u and (u.startswith("http://") or u.startswith("https://")):
             return u
-    # 2. Agent, office, or builder website (from API)
+    
+    # 2. Agent, office, or builder website (from API) - prioritize Zillow/Redfin/Realtor.com
     agent = item.get("listingAgent") or {}
     office = item.get("listingOffice") or {}
     builder = item.get("builder") or {}
-    url = (
-        (agent.get("website") or "").strip()
-        or (office.get("website") or "").strip()
-        or (builder.get("website") or "").strip()
-    )
-    if url and (url.startswith("http://") or url.startswith("https://")):
-        return url
-    # 3. Contact email
+    
+    # Collect all URLs and prioritize listing sites
+    urls = []
+    for source_name, source_dict in [("agent", agent), ("office", office), ("builder", builder)]:
+        u = (source_dict.get("website") or "").strip()
+        if u and (u.startswith("http://") or u.startswith("https://")):
+            urls.append((u, source_name))
+    
+    # Prioritize: Zillow > Redfin > Realtor.com > other listing sites > generic agent sites
+    listing_sites = ["zillow.com", "redfin.com", "realtor.com", "trulia.com", "apartments.com", "apartmentfinder.com"]
+    prioritized = None
+    other_urls = []
+    
+    for url, source in urls:
+        url_lower = url.lower()
+        is_listing_site = any(site in url_lower for site in listing_sites)
+        if is_listing_site:
+            # Check if it's a specific listing page (has /rental/ or /homedetails/ or address-like path)
+            if any(pattern in url_lower for pattern in ["/rental/", "/homedetails/", "/property/", "/listing/", "/apartment/"]):
+                prioritized = url
+                break
+            elif not prioritized:  # Keep first listing site URL as fallback
+                prioritized = url
+        else:
+            other_urls.append(url)
+    
+    if prioritized:
+        return prioritized
+    if other_urls:
+        return other_urls[0]  # Return first agent/office website
+    
+    # 3. Try to construct Zillow rental search URL from address (better than Google for rentals)
+    if address:
+        # Use Zillow's rental search with address query
+        zillow_query = quote_plus(address)
+        return f"https://www.zillow.com/homes/{zillow_query}/?propertyType=rental"
+    
+    # 4. Contact email
     email = (agent.get("email") or office.get("email") or "").strip()
     if email:
         return "mailto:" + email
-    # 4. Only then fall back to Google search
+    
+    # 5. Only then fall back to Google search
     query = quote_plus((address or item.get("city") or "rental") + " rental listing")
     return "https://www.google.com/search?q=" + query
 
