@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Market Intelligence — Silver Lake Portfolio</title>
+  <title>Apartment Deals — SF & Stanford Area</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,8 +14,8 @@
     <header class="dashboard-header">
       <div class="header-row">
         <div>
-          <h1>Market Intelligence Dashboard</h1>
-          <p class="dashboard-tagline">Silver Lake public portfolio — 7 companies</p>
+          <h1>Apartment Deals</h1>
+          <p class="dashboard-tagline">SF & Stanford area listings with deal scores</p>
         </div>
         <div class="header-actions">
           <span class="dashboard-updated" id="lastUpdated">Last refreshed: never</span>
@@ -32,12 +32,12 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <div class="dashboard-tabs">
-      <button type="button" class="tab-btn active" data-tab="markets" aria-selected="true">📊 Markets</button>
-      <button type="button" class="tab-btn" data-tab="apartments" aria-selected="false">🏠 SF Apartments</button>
+      <button type="button" class="tab-btn active" data-tab="apartments" aria-selected="true">🏠 SF Apartments</button>
       <button type="button" class="tab-btn" data-tab="stanford-apartments" aria-selected="false">🎓 Stanford Area</button>
+      <button type="button" class="tab-btn tab-btn--secondary" data-tab="markets" aria-selected="false">📊 Markets</button>
     </div>
 
-    <div class="tab-content active" id="markets-tab">
+    <div class="tab-content" id="markets-tab">
     <main class="dashboard-grid">
       <section class="widget widget--summary" aria-labelledby="summary-title">
         <h2 class="widget-title" id="summary-title">📊 Portfolio Performance Summary</h2>
@@ -98,7 +98,7 @@
       </section>
 
       <section class="widget widget--portfolio widget--full" aria-labelledby="portfolio-title">
-        <h2 class="widget-title" id="portfolio-title">💰 Silver Lake Public Portfolio (7 Companies)</h2>
+        <h2 class="widget-title" id="portfolio-title">💰 Portfolio (7 Companies)</h2>
         <div class="widget-body" id="widget-portfolio">
           <div class="widget-loading" data-widget="portfolio">Loading…</div>
         </div>
@@ -106,7 +106,7 @@
     </main>
     </div>
 
-    <div class="tab-content" id="apartments-tab">
+    <div class="tab-content active" id="apartments-tab">
       <div class="apartments-container">
         <div class="apartments-header">
           <div>

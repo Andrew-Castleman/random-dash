@@ -586,6 +586,20 @@ body {
   color: #667eea;
   border-bottom-color: #667eea;
 }
+.tab-btn--secondary {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #9ca3af;
+  padding: 8px 14px;
+}
+.tab-btn--secondary:hover {
+  color: #6b7280;
+}
+.tab-btn--secondary.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
@@ -894,6 +908,16 @@ body[data-theme="apartments"] .tab-btn:hover {
   color: #1a1a1a;
 }
 body[data-theme="apartments"] .tab-btn.active {
+  color: #006aff;
+  border-bottom-color: #006aff;
+}
+body[data-theme="apartments"] .tab-btn--secondary {
+  color: #9ca3af;
+}
+body[data-theme="apartments"] .tab-btn--secondary:hover {
+  color: #6b7280;
+}
+body[data-theme="apartments"] .tab-btn--secondary.active {
   color: #006aff;
   border-bottom-color: #006aff;
 }

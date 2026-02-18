@@ -418,7 +418,16 @@
     document.body.setAttribute("data-theme", tabName || "markets");
   }
   var activeTabBtn = document.querySelector(".tab-btn.active");
-  setDashboardTheme(activeTabBtn ? activeTabBtn.getAttribute("data-tab") : "markets");
+  var initialTab = activeTabBtn ? activeTabBtn.getAttribute("data-tab") : "apartments";
+  setDashboardTheme(initialTab);
+  if (initialTab === "apartments" && !window.apartmentsLoaded) {
+    loadApartments();
+    window.apartmentsLoaded = true;
+  }
+  if (initialTab === "stanford-apartments" && !window.stanfordApartmentsLoaded) {
+    loadStanfordApartments();
+    window.stanfordApartmentsLoaded = true;
+  }
 
   document.querySelectorAll(".tab-btn").forEach(function (btn) {
     btn.addEventListener("click", function () {
