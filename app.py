@@ -74,6 +74,8 @@ SILVER_LAKE_PORTFOLIO = [
 ALL_COMPETITOR_TICKERS = ["HPE", "IBM", "LYV", "BATRA", "PYPL", "FIS", "RBLX", "APP", "TOST"]
 
 CACHE_TTL_FULL = 300
+# Economic calendar: 10 min cache so /api/dashboard doesn't block on FRED every load
+ECONOMIC_CALENDAR_TTL = 600
 _cache: dict = {}
 _cache_lock = threading.Lock()
 NO_COMPETITORS_MSG = "No public competitors available"
@@ -376,15 +378,23 @@ def api_dashboard():
         errors = _cache.get("errors", {}).get("data") or []
         market_fallback = _cache.get("market_fallback", {}).get("data") or {}
         updated = _cache.get("portfolio", {}).get("updated", time.time())
-    try:
-        economic_calendar = get_economic_calendar(days_back_recent=30, days_ahead_upcoming=60)
-    except Exception as e:
-        logger.warning("Economic calendar failed: %s", e)
-        economic_calendar = {"recent_releases": [], "upcoming_releases": []}
-    if not isinstance(economic_calendar, dict):
-        economic_calendar = {"recent_releases": [], "upcoming_releases": []}
-    economic_calendar.setdefault("recent_releases", [])
-    economic_calendar.setdefault("upcoming_releases", [])
+        econ_entry = _cache.get("economic_calendar", {})
+        econ_ts = econ_entry.get("updated", 0)
+        economic_calendar = None
+        if time.time() - econ_ts < ECONOMIC_CALENDAR_TTL and isinstance(econ_entry.get("data"), dict):
+            economic_calendar = econ_entry["data"]
+    if economic_calendar is None:
+        try:
+            economic_calendar = get_economic_calendar(days_back_recent=30, days_ahead_upcoming=60)
+        except Exception as e:
+            logger.warning("Economic calendar failed: %s", e)
+            economic_calendar = {"recent_releases": [], "upcoming_releases": []}
+        if not isinstance(economic_calendar, dict):
+            economic_calendar = {"recent_releases": [], "upcoming_releases": []}
+        economic_calendar.setdefault("recent_releases", [])
+        economic_calendar.setdefault("upcoming_releases", [])
+        with _cache_lock:
+            _cache["economic_calendar"] = {"data": economic_calendar, "updated": time.time()}
     return jsonify({
         "portfolio": portfolio,
         "performance_summary": summary,

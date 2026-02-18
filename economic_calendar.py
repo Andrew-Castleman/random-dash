@@ -5,6 +5,7 @@ Recent releases: FRED API actuals. Upcoming: hardcoded FOMC, Jobs, CPI, etc. wit
 
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -158,14 +159,25 @@ def get_recent_releases(days_back: int = 95, max_per_series: int = 3) -> list[di
     Fetch FRED actuals. HIGH impact only, no jobless claims.
     Uses 95 days back so monthly/quarterly series have at least 2 observations (for "previous").
     Returns top 3 with name, date, actual, previous, change_direction, beat_forecast, miss_forecast.
+    Fetches all series in parallel to avoid sequential round-trips.
     """
+    high_impact = [(sid, cfg) for sid, cfg in FRED_SERIES.items() if cfg.get("impact") == "High"]
+    if not high_impact:
+        return []
+    days = max(days_back, 95)
+    obs_by_series: dict[str, list[dict]] = {}
+    with ThreadPoolExecutor(max_workers=min(5, len(high_impact))) as ex:
+        futures = {ex.submit(_fetch_fred_observations, series_id, days): series_id for series_id, _ in high_impact}
+        for fut in as_completed(futures, timeout=15):
+            series_id = futures[fut]
+            try:
+                obs_by_series[series_id] = fut.result()[: max_per_series + 1]
+            except Exception as e:
+                logger.warning("FRED %s: %s", series_id, e)
+                obs_by_series[series_id] = []
     out = []
-    for series_id, cfg in FRED_SERIES.items():
-        if cfg.get("impact") != "High":
-            continue
-        # Fetch enough history so we have a prior value for comparison (monthly ~2–3, quarterly ~2)
-        obs = _fetch_fred_observations(series_id, days_back=max(days_back, 95))
-        obs = obs[: max_per_series + 1]
+    for series_id, cfg in high_impact:
+        obs = obs_by_series.get(series_id, [])
         for i in range(len(obs)):
             actual_val = obs[i]["value"]
             prev_val = obs[i + 1]["value"] if i + 1 < len(obs) else None

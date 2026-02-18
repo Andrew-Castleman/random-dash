@@ -52,11 +52,28 @@ STANFORD_ALLOWED_NEIGHBORHOODS = frozenset([
 
 def _normalize_listing_url(url: Optional[str]) -> str:
     """Ensure listing URL is a direct sfbay.craigslist.org listing link (no redirects)."""
+    from urllib.parse import urlparse, parse_qs, unquote
+
     if not url or not isinstance(url, str):
         return ""
     url = url.strip()
     if not url:
         return ""
+    # Protocol-relative: //sfbay.craigslist.org/...
+    if url.startswith("//"):
+        url = "https:" + url
+    # Redirect URL: e.g. https://www.craigslist.org/redirect?url=https%3A%2F%2Fsfbay...
+    if "redirect" in url and "url=" in url:
+        try:
+            parsed = urlparse(url)
+            q = parse_qs(parsed.query)
+            target = (q.get("url") or [None])[0]
+            if target:
+                target = unquote(target)
+                if target and "craigslist.org" in target:
+                    return _normalize_listing_url(target)
+        except Exception:
+            pass
     # Relative path -> direct sfbay link
     if url.startswith("/"):
         path = url.split("?")[0]
@@ -65,22 +82,21 @@ def _normalize_listing_url(url: Optional[str]) -> str:
         return CL_LISTING_BASE + url
     if not url.startswith("http://") and not url.startswith("https://"):
         path = url.split("?")[0]
-        if "/apa/" in path:
-            return CL_LISTING_BASE + "/" + path
-        return CL_LISTING_BASE + "/" + url
+        if "/apa/" in path and (".html" in path or "/d/" in path):
+            return CL_LISTING_BASE + "/" + path.lstrip("/")
+        return CL_LISTING_BASE + "/" + url.lstrip("/")
     # Full URL: force direct sfbay.craigslist.org link (strip redirect/tracking)
     if "craigslist.org" in url:
         try:
-            from urllib.parse import urlparse
             parsed = urlparse(url)
             path = (parsed.path or "").strip()
-            if path and path.startswith("/") and "/apa/" in path:
-                return CL_LISTING_BASE + path.split("?")[0]
-            if parsed.netloc and "sfbay.craigslist.org" in parsed.netloc:
-                return url.split("?")[0]
+            if path and "/apa/" in path and (".html" in path or "/d/" in path):
+                return (CL_LISTING_BASE + path.split("?")[0]).split("#")[0]
+            if parsed.netloc and "sfbay.craigslist.org" in parsed.netloc and "/apa/" in url:
+                return url.split("?")[0].split("#")[0]
         except Exception:
             pass
-        return url
+        return url.split("?")[0].split("#")[0] if "/apa/" in url else ""
     return ""
 
 # Claude client (optional; falls back to score-only when missing)
@@ -410,12 +426,11 @@ def scrape_via_ldjson(html_text, min_price: Optional[int] = None, max_price: Opt
                 name = (item.get("name") or "").strip()
                 if not name:
                     continue
-                url = item.get("url") or item.get("mainEntityOfPage")
-                if isinstance(url, dict):
-                    url = url.get("url") or url.get("@id") or ""
-                url = (url or "").strip()
-                url = _normalize_listing_url(url)
-                if not url:
+                raw_url = item.get("url") or item.get("mainEntityOfPage")
+                if isinstance(raw_url, dict):
+                    raw_url = raw_url.get("url") or raw_url.get("@id") or ""
+                url = _normalize_listing_url((raw_url or "").strip())
+                if not url or "/apa/" not in url or ".html" not in url:
                     continue
                 price = None
                 offers = item.get("offers")
@@ -486,7 +501,7 @@ def scrape_via_ldjson(html_text, min_price: Optional[int] = None, max_price: Opt
                         lon = None
                 apartments.append({
                     "title": name,
-                    "url": url or CL_LISTING_BASE + "/search/sfc/apa",
+                    "url": url,
                     "price": price,
                     "neighborhood": neighborhood,
                     "bedrooms": bedrooms,
@@ -584,7 +599,7 @@ def scrape_via_html(
                 for link in unique_links[: max_listings * 2]:  # fetch extra, filter by price
                     try:
                         url = _normalize_listing_url(link.get("href", ""))
-                        if not url:
+                        if not url or "/apa/" not in url or ".html" not in url:
                             continue
                         raw_title = (link.get_text() or "").strip()
                         if not raw_title:
@@ -656,7 +671,7 @@ def scrape_via_html(
             for link in detail_links[: max_listings * 2]:
                 try:
                     url = _normalize_listing_url(link.get("href", ""))
-                    if not url or url in seen:
+                    if not url or "/apa/" not in url or ".html" not in url or url in seen:
                         continue
                     seen.add(url)
                     raw_title = (link.get_text() or "").strip()
@@ -759,6 +774,8 @@ def parse_listing(listing):
             return None
         apt["title"] = (title_elem.get_text() or "").strip()
         apt["url"] = _normalize_listing_url(title_elem.get("href", ""))
+        if not apt["url"] or "/apa/" not in apt["url"] or ".html" not in apt["url"]:
+            return None
 
         # ----- Price: multi-strategy from actual elements first -----
         price = None

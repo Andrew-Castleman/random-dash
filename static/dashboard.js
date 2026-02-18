@@ -368,6 +368,22 @@
     }
   }
 
+  var DASHBOARD_FETCH_TIMEOUT_MS = 20000;
+
+  function fetchWithTimeout(url, options, timeoutMs) {
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function () { controller.abort(); }, timeoutMs || DASHBOARD_FETCH_TIMEOUT_MS);
+    var opts = options || {};
+    opts.signal = controller.signal;
+    return fetch(url, opts).then(function (r) {
+      clearTimeout(timeoutId);
+      return r;
+    }, function (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    });
+  }
+
   function loadDashboard(showLoadingSpinners) {
     if (showLoadingSpinners) {
       setLoading("summary");
@@ -379,20 +395,21 @@
       setLoading("portfolio");
     }
 
-    fetch("/api/dashboard")
+    fetchWithTimeout("/api/dashboard", { method: "GET" }, DASHBOARD_FETCH_TIMEOUT_MS)
       .then(function (r) { return r.json(); })
       .then(function (payload) {
         applyDashboard(payload);
       })
       .catch(function (err) {
+        var msg = err.name === "AbortError" ? "Request timed out. Try again or refresh the page." : (err.message || "Network error");
         if (showLoadingSpinners) {
-          setError("summary", err.message);
-          setError("movers", err.message);
-          setError("vs-market", err.message);
-          setError("trending", err.message);
-          setError("gainers", err.message);
-          setError("losers", err.message);
-          setError("portfolio", err.message);
+          setError("summary", msg);
+          setError("movers", msg);
+          setError("vs-market", msg);
+          setError("trending", msg);
+          setError("gainers", msg);
+          setError("losers", msg);
+          setError("portfolio", msg);
         }
         if (lastUpdatedEl) lastUpdatedEl.textContent = "Last refreshed: never";
       });
@@ -973,6 +990,7 @@
         if (coords) { lat = coords[0]; lon = coords[1]; } else { lat = defaultSF[0]; lon = defaultSF[1]; }
       }
       var viewUrl = ensureCraigslistListingUrl(apt.url);
+      if (viewUrl === "#" || !viewUrl) viewUrl = "https://sfbay.craigslist.org/search/sfc/apa";
       var photoBox = "";
       if (apt.thumbnail_url) {
         photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
@@ -1094,6 +1112,7 @@
       var lat = apt.latitude != null && apt.longitude != null ? Number(apt.latitude) : coords[0];
       var lon = apt.latitude != null && apt.longitude != null ? Number(apt.longitude) : coords[1];
       var viewUrl = ensureCraigslistListingUrl(apt.url);
+      if (viewUrl === "#" || !viewUrl) viewUrl = "https://sfbay.craigslist.org/search/pen/apa";
       var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
       var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
       var photoBox = "<div class=\"apt-map-wrap\"><iframe class=\"apt-map-iframe\" sandbox=\"allow-scripts\" title=\"Map: " + escapeHtml(neighborhoodForMap) + "\" src=\"" + escapeHtml(mapUrl) + "\" loading=\"lazy\"></iframe><div class=\"apt-map-label\">\uD83D\uDCCD " + escapeHtml(neighborhoodForMap) + "</div></div>";
