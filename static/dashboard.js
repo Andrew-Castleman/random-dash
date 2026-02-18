@@ -511,30 +511,31 @@
     });
   });
 
-  // --- SF Apartments ---
+  // --- SF Apartments (Rentcast portal) ---
   var apartmentsData = [];
+  var PORTAL_FETCH_TIMEOUT_MS = 15000;
 
   function loadApartments() {
+    var list = document.getElementById("apartmentsList");
     var btn = document.getElementById("refreshApartments");
-    if (!btn) return;
-    btn.disabled = true;
-    btn.textContent = "\uD83D\uDD04 Loading…";
-    fetch("/api/apartments/portal")
-      .then(function (r) { return r.json(); })
+    if (list) list.innerHTML = "<div class=\"widget-loading\">Loading listings…</div>";
+    if (btn) { btn.disabled = true; btn.textContent = "\uD83D\uDD04 Loading…"; }
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function () { controller.abort(); }, PORTAL_FETCH_TIMEOUT_MS);
+    fetch("/api/apartments/portal", { signal: controller.signal })
+      .then(function (r) { clearTimeout(timeoutId); return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
         apartmentsData = data.apartments || [];
         renderApartments(apartmentsData);
         updateApartmentStats(data.stats || {});
-        btn.textContent = "\uD83D\uDD04 Refresh Listings";
-        btn.disabled = false;
+        if (btn) { btn.textContent = "\uD83D\uDD04 Refresh Listings"; btn.disabled = false; }
       })
       .catch(function (err) {
+        clearTimeout(timeoutId);
         console.error("Error loading apartments:", err);
-        var list = document.getElementById("apartmentsList");
-        if (list) list.innerHTML = "<div class=\"error-message\">Error loading apartments. Please try again.</div>";
-        btn.textContent = "\uD83D\uDD04 Try Again";
-        btn.disabled = false;
+        if (list) list.innerHTML = "<div class=\"error-message\">" + (err.name === "AbortError" ? "Request timed out. Please try again." : "Error loading apartments. Please try again.") + "</div>";
+        if (btn) { btn.textContent = "\uD83D\uDD04 Try Again"; btn.disabled = false; }
       });
   }
 
@@ -729,26 +730,26 @@
   var STANFORD_DEFAULT = [37.4419, -122.1430];
 
   function loadStanfordApartments() {
+    var list = document.getElementById("stanfordApartmentsList");
     var btn = document.getElementById("refreshStanfordApartments");
-    if (!btn) return;
-    btn.disabled = true;
-    btn.textContent = "\uD83D\uDD04 Loading…";
-    fetch("/api/apartments/portal/stanford")
-      .then(function (r) { return r.json(); })
+    if (list) list.innerHTML = "<div class=\"widget-loading\">Loading listings…</div>";
+    if (btn) { btn.disabled = true; btn.textContent = "\uD83D\uDD04 Loading…"; }
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function () { controller.abort(); }, PORTAL_FETCH_TIMEOUT_MS);
+    fetch("/api/apartments/portal/stanford", { signal: controller.signal })
+      .then(function (r) { clearTimeout(timeoutId); return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
         stanfordApartmentsData = data.apartments || [];
         renderStanfordApartments(stanfordApartmentsData);
         updateStanfordApartmentStats(data.stats || {});
-        btn.textContent = "\uD83D\uDD04 Refresh Listings";
-        btn.disabled = false;
+        if (btn) { btn.textContent = "\uD83D\uDD04 Refresh Listings"; btn.disabled = false; }
       })
       .catch(function (err) {
+        clearTimeout(timeoutId);
         console.error("Error loading Stanford apartments:", err);
-        var list = document.getElementById("stanfordApartmentsList");
-        if (list) list.innerHTML = "<div class=\"error-message\">Error loading listings. Please try again.</div>";
-        btn.textContent = "\uD83D\uDD04 Try Again";
-        btn.disabled = false;
+        if (list) list.innerHTML = "<div class=\"error-message\">" + (err.name === "AbortError" ? "Request timed out. Please try again." : "Error loading listings. Please try again.") + "</div>";
+        if (btn) { btn.textContent = "\uD83D\uDD04 Try Again"; btn.disabled = false; }
       });
   }
 

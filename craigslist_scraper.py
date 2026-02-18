@@ -586,14 +586,25 @@ def scrape_via_html(
             logger.debug("No list items; trying link-based parsing")
             # Any link to a listing page: /pen/apa/... or /sfc/apa/...
             apt_links = soup.select(f'a[href*="/{area}/apa/"]')
-            # Dedupe by href (same listing can appear multiple times)
-            seen = set()
-            unique_links = []
+            # Dedupe by href; prefer the title link (titlestring/result-title) or the one with most text
+            href_to_best_link = {}
             for a in apt_links:
                 h = a.get("href", "")
-                if h and h not in seen and re.search(r"/" + re.escape(area) + r"/apa/(?:d/)?[^/]+/\d+\.html", h):
-                    seen.add(h)
-                    unique_links.append(a)
+                if not h or not re.search(r"/" + re.escape(area) + r"/apa/(?:d/)?[^/]+/\d+\.html", h):
+                    continue
+                h_norm = h.split("?")[0]
+                current = href_to_best_link.get(h_norm)
+                a_cls = (a.get("class") or []) if isinstance(a.get("class"), list) else []
+                a_text_len = len((a.get_text() or "").strip())
+                if not current:
+                    href_to_best_link[h_norm] = a
+                else:
+                    cur_cls = (current.get("class") or []) if isinstance(current.get("class"), list) else []
+                    if "titlestring" in a_cls or "result-title" in a_cls or "cl-app-anchor" in a_cls:
+                        href_to_best_link[h_norm] = a
+                    elif ("titlestring" not in cur_cls and "result-title" not in cur_cls) and a_text_len > len((current.get_text() or "").strip()):
+                        href_to_best_link[h_norm] = a
+            unique_links = list(href_to_best_link.values())
             logger.debug("Unique listing links=%s", len(unique_links))
             if unique_links:
                 for link in unique_links[: max_listings * 2]:  # fetch extra, filter by price
@@ -604,13 +615,20 @@ def scrape_via_html(
                         raw_title = (link.get_text() or "").strip()
                         if not raw_title:
                             continue
-                        parent = link.parent
+                        row = _listing_row_ancestor(link)
+                        parent = row if row else link.parent
                         combined_text = (parent.get_text() if parent else "") or raw_title
                         if parent and parent.parent and not re.search(r"\d\s*br|\d\s*bed|studio", combined_text, re.I):
                             combined_text = (parent.parent.get_text() or "") + " " + combined_text
                         price = extract_price_from_text(combined_text) or extract_price_from_text(raw_title)
-                        if not price:
-                            price_elem = parent.find(class_=re.compile(r"result-price|priceinfo|price", re.I)) if parent else None
+                        if not price and parent:
+                            price_elem = parent.find(class_=re.compile(r"result-price|priceinfo|price", re.I))
+                            if price_elem:
+                                m = re.search(r"\$?([\d,]+)", (price_elem.get_text() or ""))
+                                if m:
+                                    price = int(m.group(1).replace(",", ""))
+                        if not price and link.parent:
+                            price_elem = link.parent.find(class_=re.compile(r"result-price|priceinfo|price", re.I))
                             if price_elem:
                                 m = re.search(r"\$?([\d,]+)", (price_elem.get_text() or ""))
                                 if m:
@@ -654,7 +672,7 @@ def scrape_via_html(
 
         for listing in listings[:max_listings]:
             try:
-                apt = parse_listing(listing)
+                apt = parse_listing(listing, area=area)
                 if apt and apt.get("price"):
                     if min_price <= apt["price"] <= max_price:
                         apartments.append(apt)
@@ -666,6 +684,18 @@ def scrape_via_html(
         # If list items didn't parse (wrong DOM), fall back to link-based parsing
         detail_links = [a for a in listing_links if re.search(r"/" + re.escape(area) + r"/apa/.+\d+\.html", a.get("href", ""))]
         if not apartments and detail_links:
+            # Prefer title link per URL so price/title match the listing
+            href_to_best = {}
+            for a in detail_links:
+                h = (a.get("href") or "").split("?")[0]
+                if not h:
+                    continue
+                cur = href_to_best.get(h)
+                a_cls = (a.get("class") or []) if isinstance(a.get("class"), list) else []
+                a_len = len((a.get_text() or "").strip())
+                if not cur or "titlestring" in a_cls or "result-title" in a_cls or "cl-app-anchor" in a_cls or a_len > len((cur.get_text() or "").strip()):
+                    href_to_best[h] = a
+            detail_links = list(href_to_best.values())
             logger.debug("0 from list items; link fallback (%s links)", len(detail_links))
             seen = set()
             for link in detail_links[: max_listings * 2]:
@@ -677,7 +707,8 @@ def scrape_via_html(
                     raw_title = (link.get_text() or "").strip()
                     if not raw_title:
                         continue
-                    parent = link.parent
+                    row = _listing_row_ancestor(link)
+                    parent = row if row else link.parent
                     combined_text = (parent.get_text() if parent else "") or raw_title
                     if parent and parent.parent and not re.search(r"\d\s*br|\d\s*bed|studio", combined_text, re.I):
                         combined_text = (parent.parent.get_text() or "") + " " + combined_text
@@ -733,10 +764,27 @@ def scrape_via_html(
     return apartments
 
 
-def parse_listing(listing):
+def _listing_row_ancestor(elem) -> Optional[Any]:
+    """Climb from element to nearest listing row (li.cl-search-result, li.result-row, or [data-pid])."""
+    if elem is None:
+        return None
+    here = elem
+    for _ in range(10):
+        if here is None:
+            return None
+        if here.name == "li" and (here.get("class") and any(c in ("cl-search-result", "result-row", "cl-static-search-result") for c in here.get("class", []))):
+            return here
+        if here.get("data-pid"):
+            return here
+        here = getattr(here, "parent", None)
+    return None
+
+
+def parse_listing(listing, area: str = "sfc"):
     """
     Parse individual Craigslist listing with robust multi-strategy price extraction.
     Tries 7 different methods to find price from actual HTML elements, then text fallback.
+    area: 'sfc' or 'pen' so we match the correct listing link for this search.
     """
     try:
         apt = {
@@ -759,18 +807,36 @@ def parse_listing(listing):
             "latitude": None,
             "longitude": None,
         }
-        # ----- Title and URL -----
-        title_elem = (
-            listing.find("a", class_="titlestring")
-            or listing.find("a", class_="result-title")
-            or listing.find("div", class_="title")
-            or listing.find("a", class_="posting-title")
-            or listing.find("a", class_="cl-app-anchor")
-            or listing.find("a", href=re.compile(r"/sfc/apa/.+\d+\.html"))
-            or listing.find("a", href=lambda x: x and "/apa/" in (x or ""))
-        )
+        # ----- Title and URL: prefer main listing link for this area (so title/price match the URL) -----
+        area_pattern = re.compile(r"/" + re.escape(area) + r"/apa/(?:d/)?[^/]+/\d+\.html")
+        candidates = listing.find_all("a", href=True)
+        title_elem = None
+        for a in candidates:
+            href = a.get("href") or ""
+            if not area_pattern.search(href):
+                continue
+            # Prefer the anchor that has the listing title (titlestring/result-title) or has substantial text
+            cls = (a.get("class") or []) if isinstance(a.get("class"), list) else []
+            if "titlestring" in cls or "result-title" in cls or "cl-app-anchor" in cls or "posting-title" in cls:
+                title_elem = a
+                break
+            if not title_elem or (len((a.get_text() or "").strip()) > len((title_elem.get_text() or "").strip())):
+                title_elem = a
+        if not title_elem and candidates:
+            for a in candidates:
+                if area_pattern.search(a.get("href") or ""):
+                    title_elem = a
+                    break
         if not title_elem:
-            logger.debug("Could not find title element")
+            title_elem = (
+                listing.find("a", class_="titlestring")
+                or listing.find("a", class_="result-title")
+                or listing.find("a", class_="cl-app-anchor")
+                or listing.find("a", href=area_pattern)
+                or listing.find("a", href=lambda x: x and "/apa/" in (x or "") and area in (x or ""))
+            )
+        if not title_elem:
+            logger.debug("Could not find title element for area=%s", area)
             return None
         apt["title"] = (title_elem.get_text() or "").strip()
         apt["url"] = _normalize_listing_url(title_elem.get("href", ""))
