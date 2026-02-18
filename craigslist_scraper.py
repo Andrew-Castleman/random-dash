@@ -51,19 +51,37 @@ STANFORD_ALLOWED_NEIGHBORHOODS = frozenset([
 
 
 def _normalize_listing_url(url: Optional[str]) -> str:
-    """Ensure listing URL is a full Craigslist URL."""
+    """Ensure listing URL is a direct sfbay.craigslist.org listing link (no redirects)."""
     if not url or not isinstance(url, str):
         return ""
     url = url.strip()
     if not url:
         return ""
-    if url.startswith("http://") or url.startswith("https://"):
-        if "craigslist.org" in url:
-            return url
-        return url
+    # Relative path -> direct sfbay link
     if url.startswith("/"):
+        path = url.split("?")[0]
+        if "/apa/" in path and (".html" in path or "/d/" in path):
+            return CL_LISTING_BASE + path
         return CL_LISTING_BASE + url
-    return CL_LISTING_BASE + "/" + url
+    if not url.startswith("http://") and not url.startswith("https://"):
+        path = url.split("?")[0]
+        if "/apa/" in path:
+            return CL_LISTING_BASE + "/" + path
+        return CL_LISTING_BASE + "/" + url
+    # Full URL: force direct sfbay.craigslist.org link (strip redirect/tracking)
+    if "craigslist.org" in url:
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            path = (parsed.path or "").strip()
+            if path and path.startswith("/") and "/apa/" in path:
+                return CL_LISTING_BASE + path.split("?")[0]
+            if parsed.netloc and "sfbay.craigslist.org" in parsed.netloc:
+                return url.split("?")[0]
+        except Exception:
+            pass
+        return url
+    return ""
 
 # Claude client (optional; falls back to score-only when missing)
 try:
@@ -573,6 +591,8 @@ def scrape_via_html(
                             continue
                         parent = link.parent
                         combined_text = (parent.get_text() if parent else "") or raw_title
+                        if parent and parent.parent and not re.search(r"\d\s*br|\d\s*bed|studio", combined_text, re.I):
+                            combined_text = (parent.parent.get_text() or "") + " " + combined_text
                         price = extract_price_from_text(combined_text) or extract_price_from_text(raw_title)
                         if not price:
                             price_elem = parent.find(class_=re.compile(r"result-price|priceinfo|price", re.I)) if parent else None
@@ -644,6 +664,8 @@ def scrape_via_html(
                         continue
                     parent = link.parent
                     combined_text = (parent.get_text() if parent else "") or raw_title
+                    if parent and parent.parent and not re.search(r"\d\s*br|\d\s*bed|studio", combined_text, re.I):
+                        combined_text = (parent.parent.get_text() or "") + " " + combined_text
                     price = extract_price_from_text(combined_text) or extract_price_from_text(raw_title)
                     if not price and parent:
                         price_elem = parent.find(class_=re.compile(r"result-price|priceinfo|price", re.I))
@@ -841,12 +863,30 @@ def parse_listing(listing):
             if not apt["neighborhood"]:
                 apt["neighborhood"] = "San Francisco"
 
-        # ----- Bedrooms, bathrooms, sqft -----
-        housing_elem = listing.find("span", class_="housing")
+        # ----- Bedrooms, bathrooms, sqft (try housing span, then any attr-like element, then full listing) -----
+        housing_elem = (
+            listing.find("span", class_="housing")
+            or listing.find(class_=re.compile(r"housing|attr|posting-details|postingbody", re.I))
+            or listing.find("span", class_=lambda c: c and "housing" in str(c).lower())
+        )
+        listing_full_text = (listing.get_text() or "") + " " + (apt["title"] or "")
         search_text = (housing_elem.get_text() if housing_elem else "") + " " + (apt["title"] or "")
-        apt["bedrooms"] = extract_bedrooms(search_text) or extract_bedrooms(apt["title"])
-        apt["bathrooms"] = extract_bathrooms(search_text) or extract_bathrooms(apt["title"])
-        apt["sqft"] = extract_sqft(search_text) or extract_sqft(apt["title"])
+        # Prefer housing block, then fall back to full listing text (helps peninsula/different DOM)
+        apt["bedrooms"] = (
+            extract_bedrooms(search_text)
+            or extract_bedrooms(listing_full_text)
+            or extract_bedrooms(apt["title"])
+        )
+        apt["bathrooms"] = (
+            extract_bathrooms(search_text)
+            or extract_bathrooms(listing_full_text)
+            or extract_bathrooms(apt["title"])
+        )
+        apt["sqft"] = (
+            extract_sqft(search_text)
+            or extract_sqft(listing_full_text)
+            or extract_sqft(apt["title"])
+        )
 
         # ----- Laundry, parking, thumbnail -----
         full_text = (listing.get_text() or "") + " " + (apt["title"] or "")
@@ -872,14 +912,27 @@ def parse_listing(listing):
 
 
 def extract_bedrooms(text):
+    """Extract bedroom count from listing text. Handles 2br, 2 br, 2-bed, 2 bd, studio, etc."""
     if not text:
         return None
     text = text.lower()
-    match = re.search(r"(\d+)\s*(?:br|bed|bedroom)s?", text)
+    # Studio / 0 BR
+    if re.search(r"\bstudio\b", text) or re.search(r"\b0\s*br\b", text) or "0br" in text or "0-bed" in text:
+        return 0
+    # Explicit N br / N bed / N bedroom (with optional hyphen, optional s)
+    match = re.search(
+        r"(?:^|[\s/\-])(\d+)\s*[-]?\s*(?:br|bed|bedroom|bd)s?\b",
+        text,
+        re.IGNORECASE,
+    )
+    if match:
+        n = int(match.group(1))
+        if 0 <= n <= 6:
+            return n
+    # Compact form: 1br, 2br, 3br (no space)
+    match = re.search(r"\b([1-6])br\b", text)
     if match:
         return int(match.group(1))
-    if "studio" in text or "0br" in text:
-        return 0
     return None
 
 

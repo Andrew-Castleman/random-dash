@@ -922,6 +922,94 @@ body[data-theme="apartments"] .tab-btn--secondary.active {
   border-bottom-color: #006aff;
 }
 
+/* ----- Stanford Trees theme (light, forest green accents) ----- */
+body[data-theme="stanford-apartments"] {
+  background: #e8ebe6;
+}
+body[data-theme="stanford-apartments"] .dashboard {
+  background: transparent;
+}
+body[data-theme="stanford-apartments"] .dashboard-header {
+  background: #f5f7f3;
+  border-bottom: 1px solid #c5d1bd;
+  margin: 0 -16px 20px -16px;
+  padding: 16px 16px 12px;
+}
+body[data-theme="stanford-apartments"] .dashboard-header h1 {
+  color: #1b4d2e;
+  font-size: 1.5rem;
+}
+body[data-theme="stanford-apartments"] .dashboard-tagline,
+body[data-theme="stanford-apartments"] .dashboard-updated {
+  color: #3d5c3a;
+}
+body[data-theme="stanford-apartments"] .btn-refresh {
+  background: #2d5a27;
+  color: #fff;
+}
+body[data-theme="stanford-apartments"] .btn-refresh:hover:not(:disabled) {
+  background: #1b4d2e;
+}
+body[data-theme="stanford-apartments"] .dashboard-tabs {
+  border-bottom: 2px solid #c5d1bd;
+}
+body[data-theme="stanford-apartments"] .tab-btn {
+  color: #3d5c3a;
+}
+body[data-theme="stanford-apartments"] .tab-btn:hover {
+  color: #1b4d2e;
+}
+body[data-theme="stanford-apartments"] .tab-btn.active {
+  color: #2d5a27;
+  border-bottom-color: #2d5a27;
+}
+body[data-theme="stanford-apartments"] .tab-btn--secondary {
+  color: #7a8f76;
+}
+body[data-theme="stanford-apartments"] .tab-btn--secondary:hover {
+  color: #3d5c3a;
+}
+body[data-theme="stanford-apartments"] .tab-btn--secondary.active {
+  color: #2d5a27;
+  border-bottom-color: #2d5a27;
+}
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-container { max-width: 1280px; margin: 0 auto; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-header { margin-bottom: 24px; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-title { font-family: "DM Sans", -apple-system, sans-serif; font-weight: 700; font-size: 1.75rem; color: #1b4d2e; letter-spacing: -0.02em; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .range-subtitle { color: #3d5c3a; font-size: 0.9375rem; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn { background: #2d5a27; color: #fff; border-radius: 6px; font-weight: 600; padding: 10px 20px; font-size: 0.9375rem; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn:hover:not(:disabled) { background: #1b4d2e; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .refresh-btn:disabled { background: #9cb098; cursor: not-allowed; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-filters select { padding: 10px 14px; border: 1px solid #c5d1bd; border-radius: 6px; font-size: 0.875rem; background: #fff; color: #2d3b2a; min-width: 140px; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-filters select:focus { border-color: #2d5a27; outline: none; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-stats { background: #f5f7f3; border: 1px solid #c5d1bd; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; display: flex; gap: 32px; color: #1b4d2e; box-shadow: 0 1px 3px rgba(45, 90, 39, 0.08); }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-stats .stat-label { font-size: 0.75rem; color: #3d5c3a; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartments-stats .stat-value { font-size: 1.5rem; font-weight: 700; color: #2d5a27; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card { background: #fafcf8; border: 1px solid #c5d1bd; border-radius: 8px; overflow: hidden; padding: 0; box-shadow: 0 1px 3px rgba(45, 90, 39, 0.06); transition: box-shadow 0.2s, transform 0.2s; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card:hover { box-shadow: 0 8px 24px rgba(45, 90, 39, 0.15); transform: translateY(-2px); }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-placeholder { background: linear-gradient(180deg, #d4e0ce 0%, #c5d1bd 100%); color: #5a6b56; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-wrap { background: #d4e0ce; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-wrap { background: #d4e0ce; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-label { background: linear-gradient(to top, rgba(27, 77, 46, 0.85), transparent); color: #fff; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-map-link { color: #2d5a27; font-weight: 500; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-icon { opacity: 0.8; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apt-photo-text { color: #3d5c3a; font-weight: 500; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .deal-badge { background: #2d5a27; color: #fff; box-shadow: 0 2px 8px rgba(27, 77, 46, 0.25); }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .deal-badge.excellent { background: #1b4d2e; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-title { color: #1b4d2e; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-price { color: #2d5a27; font-size: 1.5rem; font-weight: 700; margin: 0; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-detail { color: #3d5c3a; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics { background: #e8ebe6; border: 1px solid #c5d1bd; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics .metric-label { color: #3d5c3a; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics .metric-value.positive { color: #1b6b30; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-metrics .metric-value.negative { color: #c53030; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-analysis { background: #e8f0e6; border-left: 3px solid #2d5a27; color: #2d3b2a; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-link { background: #2d5a27; color: #fff; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .apartment-card .apt-link:hover { background: #1b4d2e; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .no-apartments,
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .error-message { color: #3d5c3a; padding: 48px 24px; }
+body[data-theme="stanford-apartments"] #stanford-apartments-tab .error-message { color: #c53030; }
+
 /* Zillow-style apartments container and cards (SF + Stanford area) */
 #apartments-tab .apartments-container,
 #stanford-apartments-tab .apartments-container {

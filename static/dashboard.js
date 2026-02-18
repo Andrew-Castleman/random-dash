@@ -14,6 +14,15 @@
     return div.innerHTML;
   }
 
+  function ensureCraigslistListingUrl(url) {
+    if (url == null || typeof url !== "string") return "#";
+    var u = url.trim();
+    if (!u) return "#";
+    if (u.indexOf("http://") === 0 || u.indexOf("https://") === 0) return u;
+    if (u.indexOf("/") === 0) return "https://sfbay.craigslist.org" + u;
+    return "https://sfbay.craigslist.org/" + u;
+  }
+
   function setLoading(widgetId, msg) {
     var wrap = document.getElementById("widget-" + widgetId);
     if (!wrap) return;
@@ -568,7 +577,7 @@
       }
       var photoBox = "";
       if (apt.thumbnail_url) {
-        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(apt.url || "#") + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
+        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
       } else if (lat !== null && lon !== null) {
         var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
         var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
@@ -597,7 +606,7 @@
         marketHtml +
         "</div>" +
         "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
-        "<a href=\"" + escapeHtml(apt.url || "#") + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
+        "<a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
       container.appendChild(card);
     });
   }
@@ -767,7 +776,7 @@
       }
       var photoBox = "";
       if (apt.thumbnail_url) {
-        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(apt.url || "#") + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
+        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
       } else if (lat !== null && lon !== null) {
         var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
         var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
@@ -796,7 +805,7 @@
         marketHtml +
         "</div>" +
         "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
-        "<a href=\"" + escapeHtml(apt.url || "#") + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
+        "<a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
       container.appendChild(card);
     });
   }
