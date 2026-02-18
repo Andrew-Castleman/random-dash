@@ -328,10 +328,6 @@
       <a href="/contact">Contact</a>
     </footer>
   </div>
-  <script>
-    window.__INITIAL_PORTAL_SF__ = {{ (initial_portal_sf or {}) | tojson }};
-    window.__INITIAL_PORTAL_STANFORD__ = {{ (initial_portal_stanford or {}) | tojson }};
-  </script>
   <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>
 </html>

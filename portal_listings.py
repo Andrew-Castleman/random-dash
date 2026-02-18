@@ -8,6 +8,7 @@ import logging
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus
@@ -22,7 +23,7 @@ API_KEY = os.environ.get("RENTCAST_API_KEY", "").strip()
 BASE_URL = "https://api.rentcast.io/v1"
 # 7-day default cache to minimize API calls (50/month budget)
 CACHE_TTL = int(os.environ.get("PORTAL_CACHE_TTL", "604800"))
-MIN_REQUEST_INTERVAL = int(os.environ.get("PORTAL_MIN_REQUEST_INTERVAL", "120"))
+MIN_REQUEST_INTERVAL = int(os.environ.get("PORTAL_MIN_REQUEST_INTERVAL", "5"))  # Reduced from 120s to 5s
 REQUEST_TIMEOUT = 25
 MAX_RESULTS = 100
 MAX_MONTHLY_CALLS = 50
@@ -39,6 +40,9 @@ _cache: dict[str, tuple[list[dict], float]] = {}
 _cache_lock = threading.Lock()
 _last_request: dict[str, float] = {}
 _request_lock = threading.Lock()
+# Cache API count for 5 seconds to avoid repeated DB queries
+_api_count_cache: tuple[int, float] = (0, 0.0)
+_api_count_cache_lock = threading.Lock()
 
 # Initialize: reset counter if new month (no-op if DB/table not ready)
 try:
@@ -70,16 +74,21 @@ def _load_persistent_cache() -> None:
 
 
 def _save_persistent_cache() -> None:
-    """Write in-memory cache to file."""
+    """Write in-memory cache to file. Non-blocking: runs in background thread."""
     path = Path(_CACHE_FILE) if isinstance(_CACHE_FILE, str) else _CACHE_FILE
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with _cache_lock:
-            data = {k: {"entries": entries, "ts": ts} for k, (entries, ts) in _cache.items()}
-        with open(path, "w") as f:
-            json.dump(data, f, separators=(",", ":"))
-    except Exception as e:
-        logger.warning("Could not save portal cache file %s: %s", path, e)
+    
+    def _write():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with _cache_lock:
+                data = {k: {"entries": entries, "ts": ts} for k, (entries, ts) in _cache.items()}
+            with open(path, "w") as f:
+                json.dump(data, f, separators=(",", ":"))
+        except Exception as e:
+            logger.warning("Could not save portal cache file %s: %s", path, e)
+    
+    # Write asynchronously to avoid blocking API response
+    threading.Thread(target=_write, daemon=True).start()
 
 
 # Load persistent cache on import (so restarts reuse data)
@@ -98,10 +107,15 @@ def get_api_usage_info() -> dict[str, Any]:
 
 
 def _rate_limit(region: str) -> None:
+    """Rate limit: only sleep if last request was very recent (< 5s). Prevents rapid-fire calls."""
     with _request_lock:
         last = _last_request.get(region, 0)
-        if time.time() - last < MIN_REQUEST_INTERVAL:
-            time.sleep(MIN_REQUEST_INTERVAL - (time.time() - last))
+        elapsed = time.time() - last
+        if elapsed < MIN_REQUEST_INTERVAL:
+            sleep_time = MIN_REQUEST_INTERVAL - elapsed
+            if sleep_time > 0:
+                logger.debug("Rate limiting %s: sleeping %.1fs", region, sleep_time)
+                time.sleep(sleep_time)
         _last_request[region] = time.time()
 
 
@@ -182,14 +196,27 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _get_cached_api_count() -> int:
+    """Get API count with 5-second cache to avoid repeated DB queries."""
+    global _api_count_cache
+    now = time.time()
+    with _api_count_cache_lock:
+        cached_count, cached_ts = _api_count_cache
+        if now - cached_ts < 5.0:
+            return cached_count
+        count = get_monthly_api_call_count()
+        _api_count_cache = (count, now)
+        return count
+
+
 def _fetch(city: str, state: str, min_price: int, max_price: int, limit: int) -> list[dict]:
     """Fetch from API. Checks monthly limit first; increments counter only on success."""
     if not API_KEY:
         logger.warning("RENTCAST_API_KEY not set; portal listings disabled")
         return []
     
-    # Check monthly limit BEFORE making API call
-    current_count = get_monthly_api_call_count()
+    # Check monthly limit BEFORE making API call (with cache)
+    current_count = _get_cached_api_count()
     if current_count >= MAX_MONTHLY_CALLS:
         logger.error(
             f"RentCast API monthly limit reached: {current_count}/{MAX_MONTHLY_CALLS} calls. "
@@ -224,7 +251,10 @@ def _fetch(city: str, state: str, min_price: int, max_price: int, limit: int) ->
         
         # Only increment counter on successful API call
         if increment_api_call_count():
-            new_count = get_monthly_api_call_count()
+            # Invalidate cache and get fresh count
+            with _api_count_cache_lock:
+                new_count = get_monthly_api_call_count()
+                _api_count_cache = (new_count, time.time())
             logger.info(f"RentCast API call successful. Monthly usage: {new_count}/{MAX_MONTHLY_CALLS}")
         else:
             logger.error("Failed to increment API call counter (limit may have been reached during call)")
@@ -253,7 +283,7 @@ def get_portal_listings_sf(
         else:
             stale_entries, stale_ts = [], 0.0
 
-    if get_monthly_api_call_count() >= MAX_MONTHLY_CALLS:
+    if _get_cached_api_count() >= MAX_MONTHLY_CALLS:
         if stale_entries:
             logger.info("Monthly limit reached; serving stale SF cache (age: %ss)", int(now - stale_ts))
             return stale_entries[:max_return]
@@ -290,7 +320,7 @@ def get_portal_listings_stanford(
         else:
             stale_entries, stale_ts = [], 0.0
 
-    if get_monthly_api_call_count() >= MAX_MONTHLY_CALLS:
+    if _get_cached_api_count() >= MAX_MONTHLY_CALLS:
         if stale_entries:
             logger.info("Monthly limit reached; serving stale Stanford cache (age: %ss)", int(now - stale_ts))
             return stale_entries[:max_return]
@@ -298,24 +328,40 @@ def get_portal_listings_stanford(
         return []
 
     _rate_limit("stanford")
-    # Two cities only: 2 API calls per full refresh when cache misses
+    # Two cities only: 2 API calls per full refresh when cache misses - fetch in parallel
     cities = [("Palo Alto", "CA"), ("Menlo Park", "CA")]
     per_city = max(50, (max_return + len(cities) - 1) // len(cities))
     seen: set[str] = set()
     all_entries: list[dict] = []
-    for city, state in cities:
-        if get_monthly_api_call_count() >= MAX_MONTHLY_CALLS:
-            logger.warning("Monthly limit reached while fetching %s. Stopping.", city)
-            break
-        for it in _fetch(city, state, min_price, max_price, per_city):
-            if not _is_publicly_listed(it):
-                continue
-            lid = it.get("id")
-            if lid and lid in seen:
-                continue
-            if lid:
-                seen.add(lid)
-            all_entries.append(_normalize(it))
+    
+    # Check limit once before parallel fetch
+    if _get_cached_api_count() >= MAX_MONTHLY_CALLS:
+        logger.warning("Monthly limit reached before Stanford fetch")
+    else:
+        # Fetch both cities in parallel
+        def fetch_city(city_state):
+            city, state = city_state
+            if _get_cached_api_count() >= MAX_MONTHLY_CALLS:
+                logger.warning("Monthly limit reached while fetching %s. Skipping.", city)
+                return []
+            return _fetch(city, state, min_price, max_price, per_city)
+        
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {executor.submit(fetch_city, cs): cs for cs in cities}
+            for future in as_completed(futures):
+                city, state = futures[future]
+                try:
+                    for it in future.result():
+                        if not _is_publicly_listed(it):
+                            continue
+                        lid = it.get("id")
+                        if lid and lid in seen:
+                            continue
+                        if lid:
+                            seen.add(lid)
+                        all_entries.append(_normalize(it))
+                except Exception as e:
+                    logger.warning("Error fetching %s: %s", city, e)
     all_entries.sort(key=lambda x: x.get("price") or 0)
     with _cache_lock:
         if all_entries or cache_key not in _cache:
