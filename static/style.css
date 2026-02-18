@@ -1070,6 +1070,131 @@ body {
   letter-spacing: 0.05em;
 }
 
+/* Image Carousel Styles */
+.apt-carousel {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  background: var(--analysis-bg);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.apt-carousel-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.apt-carousel-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out;
+  pointer-events: none;
+}
+
+.apt-carousel-slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.apt-carousel-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+}
+
+.apt-carousel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  vertical-align: top;
+}
+
+.apt-carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--text);
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  transition: background 0.2s, transform 0.2s;
+  line-height: 1;
+  padding: 0;
+}
+
+.apt-carousel-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.apt-carousel-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.apt-carousel-prev {
+  left: 12px;
+}
+
+.apt-carousel-next {
+  right: 12px;
+}
+
+.apt-carousel-dots {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 12px;
+  border-radius: 20px;
+}
+
+.apt-carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.apt-carousel-dot:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(1.2);
+}
+
+.apt-carousel-dot.active {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.3);
+}
+
+/* Hide carousel controls on single image */
+.apt-carousel:has(.apt-carousel-slide:only-child) .apt-carousel-btn,
+.apt-carousel:has(.apt-carousel-slide:only-child) .apt-carousel-dots {
+  display: none;
+}
+
 /* ----- Markets tab: professional light theme (tokens) ----- */
 body[data-theme="markets"] {
   background: var(--bg);

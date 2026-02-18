@@ -14,6 +14,152 @@
     return div.innerHTML;
   }
 
+  function createImageCarousel(imageUrls, viewUrl, cardId) {
+    if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
+      return "";
+    }
+    
+    // If only one image, show it without carousel controls
+    if (imageUrls.length === 1) {
+      return "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(imageUrls[0]) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
+    }
+    
+    // Multiple images: create carousel
+    var carouselId = "carousel-" + cardId;
+    var carouselHtml = "<div class=\"apt-carousel\" id=\"" + escapeHtml(carouselId) + "\">";
+    carouselHtml += "<div class=\"apt-carousel-container\">";
+    
+    for (var i = 0; i < imageUrls.length; i++) {
+      var isActive = i === 0 ? " active" : "";
+      carouselHtml += "<div class=\"apt-carousel-slide" + isActive + "\" data-slide-index=\"" + i + "\">";
+      carouselHtml += "<a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-carousel-link\">";
+      carouselHtml += "<img class=\"apt-carousel-image\" src=\"" + escapeHtml(imageUrls[i]) + "\" alt=\"Listing photo " + (i + 1) + "\" loading=\"" + (i === 0 ? "eager" : "lazy") + "\" />";
+      carouselHtml += "</a></div>";
+    }
+    
+    carouselHtml += "</div>"; // carousel-container
+    
+    // Navigation arrows
+    carouselHtml += "<button class=\"apt-carousel-btn apt-carousel-prev\" aria-label=\"Previous image\">‹</button>";
+    carouselHtml += "<button class=\"apt-carousel-btn apt-carousel-next\" aria-label=\"Next image\">›</button>";
+    
+    // Dots indicator
+    carouselHtml += "<div class=\"apt-carousel-dots\">";
+    for (var j = 0; j < imageUrls.length; j++) {
+      var dotActive = j === 0 ? " active" : "";
+      carouselHtml += "<button class=\"apt-carousel-dot" + dotActive + "\" data-slide-index=\"" + j + "\" aria-label=\"Go to image " + (j + 1) + "\"></button>";
+    }
+    carouselHtml += "</div>"; // carousel-dots
+    
+    carouselHtml += "</div>"; // apt-carousel
+    
+    return carouselHtml;
+  }
+
+  function initCarousel(carouselId) {
+    var carousel = document.getElementById(carouselId);
+    if (!carousel) return;
+    
+    var container = carousel.querySelector(".apt-carousel-container");
+    var slides = carousel.querySelectorAll(".apt-carousel-slide");
+    var prevBtn = carousel.querySelector(".apt-carousel-prev");
+    var nextBtn = carousel.querySelector(".apt-carousel-next");
+    var dots = carousel.querySelectorAll(".apt-carousel-dot");
+    var currentIndex = 0;
+    var totalSlides = slides.length;
+    
+    if (totalSlides <= 1) return; // No need for carousel with 1 image
+    
+    function showSlide(index) {
+      // Normalize index
+      if (index < 0) index = totalSlides - 1;
+      if (index >= totalSlides) index = 0;
+      currentIndex = index;
+      
+      // Update slides
+      for (var i = 0; i < slides.length; i++) {
+        if (i === index) {
+          slides[i].classList.add("active");
+        } else {
+          slides[i].classList.remove("active");
+        }
+      }
+      
+      // Update dots
+      for (var j = 0; j < dots.length; j++) {
+        if (j === index) {
+          dots[j].classList.add("active");
+        } else {
+          dots[j].classList.remove("active");
+        }
+      }
+    }
+    
+    function nextSlide() {
+      showSlide(currentIndex + 1);
+    }
+    
+    function prevSlide() {
+      showSlide(currentIndex - 1);
+    }
+    
+    if (prevBtn) {
+      prevBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        prevSlide();
+      });
+    }
+    
+    if (nextBtn) {
+      nextBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        nextSlide();
+      });
+    }
+    
+    // Dot navigation
+    for (var k = 0; k < dots.length; k++) {
+      (function(idx) {
+        dots[idx].addEventListener("click", function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showSlide(idx);
+        });
+      })(k);
+    }
+    
+    // Touch/swipe support (basic)
+    var startX = null;
+    var startY = null;
+    
+    carousel.addEventListener("touchstart", function(e) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    });
+    
+    carousel.addEventListener("touchend", function(e) {
+      if (startX === null || startY === null) return;
+      var endX = e.changedTouches[0].clientX;
+      var endY = e.changedTouches[0].clientY;
+      var diffX = startX - endX;
+      var diffY = startY - endY;
+      
+      // Only trigger if horizontal swipe is greater than vertical
+      if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        if (diffX > 0) {
+          nextSlide();
+        } else {
+          prevSlide();
+        }
+      }
+      
+      startX = null;
+      startY = null;
+    });
+  }
+
   function ensureCraigslistListingUrl(url) {
     if (url == null || typeof url !== "string") return "#";
     var u = url.trim();
@@ -914,7 +1060,12 @@
       }
       var photoBox = "";
       var viewUrl = listingUrl(apt);
-      if (apt.thumbnail_url) {
+      var cardId = "sf-" + index;
+      
+      // Check if we have image URLs array (from API)
+      if (apt.image_urls && Array.isArray(apt.image_urls) && apt.image_urls.length > 0) {
+        photoBox = createImageCarousel(apt.image_urls, viewUrl, cardId);
+      } else if (apt.thumbnail_url) {
         photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
       } else if (lat !== null && lon !== null) {
         var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
@@ -946,6 +1097,11 @@
         "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
         "<a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
       container.appendChild(card);
+      
+      // Initialize carousel if we have multiple images
+      if (apt.image_urls && Array.isArray(apt.image_urls) && apt.image_urls.length > 1) {
+        initCarousel("carousel-" + cardId);
+      }
     });
   }
 
@@ -1255,7 +1411,12 @@
       }
       var photoBox = "";
       var viewUrl = listingUrl(apt);
-      if (apt.thumbnail_url) {
+      var cardId = "stanford-" + index;
+      
+      // Check if we have image URLs array (from API)
+      if (apt.image_urls && Array.isArray(apt.image_urls) && apt.image_urls.length > 0) {
+        photoBox = createImageCarousel(apt.image_urls, viewUrl, cardId);
+      } else if (apt.thumbnail_url) {
         photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
       } else if (lat !== null && lon !== null) {
         var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
@@ -1287,6 +1448,11 @@
         "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
         "<a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
       container.appendChild(card);
+      
+      // Initialize carousel if we have multiple images
+      if (apt.image_urls && Array.isArray(apt.image_urls) && apt.image_urls.length > 1) {
+        initCarousel("carousel-" + cardId);
+      }
     });
   }
 

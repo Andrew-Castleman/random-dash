@@ -276,8 +276,37 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
     
     # Infer neighborhood from address/coordinates if API only returns generic city
     inferred_neighborhood = _infer_neighborhood(address, lat, lon, item.get("city"))
+    
+    # Extract image URLs from API response
+    image_urls = []
+    # Check common image field names
+    for img_field in ("images", "photos", "media", "imageUrls", "photoUrls", "mediaUrls", "photos", "images"):
+        img_data = item.get(img_field)
+        if img_data:
+            if isinstance(img_data, list):
+                for img in img_data:
+                    if isinstance(img, str) and img.startswith("http"):
+                        image_urls.append(img.strip())
+                    elif isinstance(img, dict):
+                        url = img.get("url") or img.get("src") or img.get("link")
+                        if url and isinstance(url, str) and url.startswith("http"):
+                            image_urls.append(url.strip())
+            elif isinstance(img_data, str) and img_data.startswith("http"):
+                image_urls.append(img_data.strip())
+            elif isinstance(img_data, dict):
+                url = img_data.get("url") or img_data.get("src") or img_data.get("link")
+                if url and isinstance(url, str) and url.startswith("http"):
+                    image_urls.append(url.strip())
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    image_urls = [url for url in image_urls if url not in seen and not seen.add(url)]
+    
+    # Fallback to static map thumbnail if no images found
     thumbnail_url = None
-    if STATIC_MAP_URL_TEMPLATE and lat is not None and lon is not None:
+    if image_urls:
+        thumbnail_url = image_urls[0]  # Use first image as thumbnail for backward compatibility
+    elif STATIC_MAP_URL_TEMPLATE and lat is not None and lon is not None:
         try:
             thumbnail_url = STATIC_MAP_URL_TEMPLATE.format(lat=float(lat), lon=float(lon))
         except (KeyError, ValueError):
@@ -301,6 +330,7 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
         "laundry_type": None,
         "parking": None,
         "thumbnail_url": thumbnail_url,
+        "image_urls": image_urls,  # Array of all image URLs for carousel
         "latitude": lat,
         "longitude": lon,
         "source": "portal",
@@ -320,7 +350,7 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
 def _score_portal_listing(apt: dict[str, Any], market_rates: dict[str, Any]) -> None:
     """
     Set deal_score (0-100), discount_pct, and deal_analysis from listing details vs neighborhood.
-    Uses: bedrooms, bathrooms, br:bath ratio, laundry, parking, sqft, price vs neighborhood expectations.
+    Prioritizes amenity quality over price deviation. Flags new listings (<10 days) and stale listings (>60 days).
     """
     if not apt.get("price"):
         apt["deal_score"] = 0
@@ -344,42 +374,100 @@ def _score_portal_listing(apt: dict[str, Any], market_rates: dict[str, Any]) -> 
     discount_pct = round((market_rate - apt["price"]) / market_rate * 100, 1) if market_rate else 0
     apt["discount_pct"] = discount_pct
 
-    base = 50 + int(discount_pct)
+    # Base score with REDUCED price deviation impact (capped at ±15 points)
+    # This allows higher-priced apartments with good amenities to still score well
+    price_impact = max(-15, min(15, int(discount_pct * 0.5)))  # Reduced multiplier and capped
+    base = 50 + price_impact
+    
+    # INCREASED amenity weights (quality matters more than price deviation)
     if apt.get("laundry_type") == "in_unit":
-        base += 6
+        base += 12  # Increased from 6
     elif apt.get("laundry_type") == "in_building":
-        base += 2
+        base += 4  # Increased from 2
+    
     if apt.get("parking"):
-        base += 4
+        base += 8  # Increased from 4
+    
+    # Bathroom ratio (more weight)
     baths = apt.get("bathrooms")
     if baths is not None and bedrooms is not None and bedrooms > 0:
         if baths / bedrooms >= 1.0:
-            base += 3
+            base += 5  # Increased from 3
         elif baths / bedrooms >= 0.75:
-            base += 1
+            base += 2  # Increased from 1
+    
+    # Square footage per bedroom (more weight)
     sqft = apt.get("sqft")
     if sqft and bedrooms and bedrooms > 0:
         sqft_per_bed = sqft / bedrooms
-        if sqft_per_bed >= 600:
-            base += 2
+        if sqft_per_bed >= 700:
+            base += 6  # New tier for very spacious
+        elif sqft_per_bed >= 600:
+            base += 4  # Increased from 2
         elif sqft_per_bed >= 500:
-            base += 1
+            base += 2  # Increased from 1
+    
+    # Days on market impact
+    api_data = apt.get("_api_data", {})
+    days_on_market = api_data.get("daysOnMarket")
+    
+    # Calculate days on market from posted_date if not available
+    if days_on_market is None:
+        posted_date = apt.get("posted_date")
+        if posted_date:
+            try:
+                from datetime import datetime
+                posted_dt = datetime.strptime(posted_date, "%Y-%m-%d")
+                days_on_market = (datetime.now() - posted_dt).days
+            except (ValueError, TypeError):
+                days_on_market = None
+    
+    # Flag and score based on days on market
+    apt["is_new_listing"] = False
+    apt["is_stale_listing"] = False
+    
+    if days_on_market is not None:
+        if days_on_market < 10:
+            # New listing bonus - act quickly!
+            base += 8
+            apt["is_new_listing"] = True
+        elif days_on_market >= 90:
+            # Very stale - red flag
+            base -= 15
+            apt["is_stale_listing"] = True
+        elif days_on_market >= 60:
+            # Stale listing - potential red flag
+            base -= 8
+            apt["is_stale_listing"] = True
 
     apt["deal_score"] = min(100, max(0, base))
     # Basic analysis for all listings (will be replaced with AI description for top 25%)
     parts = []
-    if discount_pct > 5:
+    
+    # Market timing flags (high priority)
+    if apt.get("is_new_listing"):
+        parts.append("🆕 NEW LISTING (<10 days) — Act quickly!")
+    elif apt.get("is_stale_listing"):
+        parts.append("⚠️ On market 60+ days — investigate why.")
+    
+    # Price context (less emphasis)
+    if discount_pct > 10:
         parts.append(f"~{discount_pct:.0f}% below market for {bed_key} in {neighborhood or 'area'}.")
-    elif discount_pct < -5:
+    elif discount_pct < -10:
         parts.append(f"~{abs(discount_pct):.0f}% above typical for {bed_key} in {neighborhood or 'area'}.")
-    else:
-        parts.append(f"Roughly at market for {bed_key} in {neighborhood or 'area'}.")
+    elif discount_pct > 5:
+        parts.append(f"Priced below market for {bed_key} in {neighborhood or 'area'}.")
+    elif discount_pct < -5:
+        parts.append(f"Priced above market for {bed_key} in {neighborhood or 'area'}.")
+    
+    # Amenities (more emphasis)
     if apt.get("laundry_type") == "in_unit":
         parts.append("In-unit laundry.")
     elif apt.get("laundry_type") == "in_building":
         parts.append("Laundry in building.")
     if apt.get("parking"):
-        parts.append("Parking.")
+        parts.append("Parking included.")
+    
     apt["deal_analysis"] = " ".join(parts).strip() or "Listed via portal. Contact agent for details."
 
 
@@ -447,13 +535,26 @@ def _generate_ai_description(apt: dict[str, Any], discount_pct: float, neighborh
     if lot_size and property_type in ("Single Family", "Townhouse"):
         parts.append(f"Lot size: {lot_size:,} sqft — outdoor space adds significant value.")
     
-    # Market timing
+    # Market timing (enhanced)
     days_on_market = api_data.get("daysOnMarket")
-    if days_on_market:
-        if days_on_market <= 7:
-            parts.append("Recently listed — act quickly on this opportunity.")
+    if days_on_market is None:
+        # Try to calculate from posted_date
+        posted_date = apt.get("posted_date")
+        if posted_date:
+            try:
+                from datetime import datetime
+                posted_dt = datetime.strptime(posted_date, "%Y-%m-%d")
+                days_on_market = (datetime.now() - posted_dt).days
+            except (ValueError, TypeError):
+                days_on_market = None
+    
+    if days_on_market is not None:
+        if days_on_market < 10:
+            parts.append(f"🆕 NEW LISTING ({days_on_market} days) — Act quickly! High demand expected.")
+        elif days_on_market >= 90:
+            parts.append(f"⚠️ RED FLAG: On market {days_on_market} days — investigate why it hasn't rented.")
         elif days_on_market >= 60:
-            parts.append(f"On market {days_on_market} days — potential for negotiation.")
+            parts.append(f"⚠️ Stale listing ({days_on_market} days) — potential issues or overpriced.")
     
     # Price per sqft context
     price_per_sqft = apt.get("price_per_sqft")
