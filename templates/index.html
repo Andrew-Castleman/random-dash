@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Life Management Agent</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>Life Management Agent</h1>
+      <p class="tagline">Tasks, news, markets & conversation</p>
+    </header>
+
+    <main class="main">
+      <div class="chat-window" id="chatWindow" role="log" aria-live="polite">
+        <div class="welcome" id="welcome">
+          <p>Hello! I'm your personal AI assistant.</p>
+          <p>I can help with tasks, news, markets, and more.</p>
+          <p class="hint">Try: &ldquo;Add task: Buy groceries&rdquo;, &ldquo;Show my tasks&rdquo;, &ldquo;What's in the news?&rdquo;, &ldquo;Check the market&rdquo;</p>
+        </div>
+      </div>
+
+      <form class="input-area" id="chatForm" novalidate>
+        <label for="messageInput" class="sr-only">Your message</label>
+        <textarea
+          id="messageInput"
+          name="message"
+          placeholder="Type a message..."
+          rows="1"
+          maxlength="2000"
+          autocomplete="off"
+        ></textarea>
+        <button type="submit" id="sendBtn" aria-label="Send message">
+          <span class="btn-text">Send</span>
+          <span class="btn-loader" aria-hidden="true"></span>
+        </button>
+      </form>
+    </main>
+  </div>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Market Intelligence — Silver Lake Portfolio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="dashboard">
+    <header class="dashboard-header">
+      <div class="header-row">
+        <div>
+          <h1>Market Intelligence Dashboard</h1>
+          <p class="dashboard-tagline">Silver Lake public portfolio — 7 companies</p>
+        </div>
+        <div class="header-actions">
+          <span class="dashboard-updated" id="lastUpdated">Last refreshed: never</span>
+          <button type="button" class="btn-refresh" id="btnRefresh" aria-label="Refresh data">
+            <span class="btn-refresh-icon">🔄</span>
+            <span class="btn-refresh-text">Refresh Data</span>
+            <span class="btn-refresh-spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      <p class="stale-warning hidden" id="staleWarning">Data is older than 10 minutes. Click Refresh Data for latest.</p>
+    </header>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="dashboard-tabs">
+      <button type="button" class="tab-btn active" data-tab="markets" aria-selected="true">📊 Markets</button>
+      <button type="button" class="tab-btn" data-tab="apartments" aria-selected="false">🏠 SF Apartments</button>
+    </div>
+
+    <div class="tab-content active" id="markets-tab">
+    <main class="dashboard-grid">
+      <section class="widget widget--summary" aria-labelledby="summary-title">
+        <h2 class="widget-title" id="summary-title">📊 Portfolio Performance Summary</h2>
+        <div class="widget-body" id="widget-summary">
+          <div class="widget-loading" data-widget="summary">Loading…</div>
+        </div>
+      </section>
+
+      <section class="widget widget--movers" aria-labelledby="movers-title">
+        <h2 class="widget-title" id="movers-title">📈 Top 3 Movers in Portfolio</h2>
+        <div class="widget-body" id="widget-movers">
+          <div class="widget-loading" data-widget="movers">Loading…</div>
+        </div>
+      </section>
+
+      <section class="widget widget--vs-market" aria-labelledby="vs-market-title">
+        <h2 class="widget-title" id="vs-market-title">📉 Portfolio vs Market (SPY)</h2>
+        <div class="widget-body" id="widget-vs-market">
+          <div class="widget-loading" data-widget="vs-market">Loading…</div>
+        </div>
+      </section>
+
+      <section class="widget widget--trending" aria-labelledby="trending-title">
+        <h2 class="widget-title" id="trending-title">🔥 Trending Now</h2>
+        <div class="widget-body" id="widget-trending">
+          <div class="widget-loading" data-widget="trending">Loading…</div>
+        </div>
+      </section>
+
+      <section class="widget widget--gainers" aria-labelledby="gainers-title">
+        <h2 class="widget-title" id="gainers-title">🚀 Top Gainers</h2>
+        <div class="widget-body" id="widget-gainers">
+          <div class="widget-loading" data-widget="gainers">Loading…</div>
+        </div>
+      </section>
+
+      <section class="widget widget--losers" aria-labelledby="losers-title">
+        <h2 class="widget-title" id="losers-title">⚠️ Top Losers</h2>
+        <div class="widget-body" id="widget-losers">
+          <div class="widget-loading" data-widget="losers">Loading…</div>
+        </div>
+      </section>
+
+      <section class="widget widget--calendar" aria-labelledby="calendar-title">
+        <div class="widget-body economic-calendar-widget" id="widget-calendar">
+          <h2 class="economic-calendar-widget__heading" id="calendar-title">📊 Economic Calendar</h2>
+          <div class="econ-grid">
+            <div class="econ-section">
+              <h3 class="econ-section__title">Last 3 Releases</h3>
+              <div id="recentEconCards" class="econ-cards"></div>
+            </div>
+            <div class="econ-section">
+              <h3 class="econ-section__title">Next 5 Events</h3>
+              <div id="upcomingEconCards" class="econ-cards"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="widget widget--portfolio widget--full" aria-labelledby="portfolio-title">
+        <h2 class="widget-title" id="portfolio-title">💰 Silver Lake Public Portfolio (7 Companies)</h2>
+        <div class="widget-body" id="widget-portfolio">
+          <div class="widget-loading" data-widget="portfolio">Loading…</div>
+        </div>
+      </section>
+    </main>
+    </div>
+
+    <div class="tab-content" id="apartments-tab">
+      <div class="apartments-container">
+        <div class="apartments-header">
+          <div>
+            <h2 class="apartments-title">🏠 San Francisco Apartment Deals</h2>
+            <p class="range-subtitle">Apartments $2,000 – $5,000/month</p>
+          </div>
+          <button type="button" id="refreshApartments" class="refresh-btn">🔄 Refresh Listings</button>
+        </div>
+        <div class="apartments-filters">
+          <select id="neighborhoodFilter" aria-label="Filter by neighborhood">
+            <option value="all">All Neighborhoods</option>
+            <option value="mission">Mission</option>
+            <option value="soma">SoMa</option>
+            <option value="nob-hill">Nob Hill</option>
+            <option value="marina">Marina</option>
+            <option value="sunset">Sunset</option>
+            <option value="richmond">Richmond</option>
+            <option value="castro">Castro</option>
+            <option value="haight">Haight-Ashbury</option>
+            <option value="pac-heights">Pacific Heights</option>
+            <option value="inner-sunset">Inner Sunset</option>
+          </select>
+          <select id="bedroomFilter" aria-label="Filter by bedrooms">
+            <option value="all">All Bedrooms</option>
+            <option value="studio">Studio</option>
+            <option value="1">1 Bedroom</option>
+            <option value="2">2 Bedrooms</option>
+            <option value="3">3+ Bedrooms</option>
+          </select>
+          <select id="sortBy" aria-label="Sort by">
+            <option value="best-deal">Best Deal Score</option>
+            <option value="price-low">Lowest Price</option>
+            <option value="price-sqft">Price per Sqft</option>
+            <option value="newest">Newest First</option>
+          </select>
+        </div>
+        <div class="apartments-stats">
+          <div class="stat">
+            <span class="stat-label">Total Listings</span>
+            <span class="stat-value" id="totalListings">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Excellent Deals</span>
+            <span class="stat-value" id="excellentDeals">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Average Price</span>
+            <span class="stat-value" id="avgPrice">$0</span>
+          </div>
+        </div>
+        <div id="apartmentsList" class="apartments-grid"></div>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>
