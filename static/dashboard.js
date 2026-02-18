@@ -513,6 +513,7 @@
 
   // --- SF Apartments (Rentcast portal) ---
   var apartmentsData = [];
+  var sfFilterPopulated = false; // Track if SF filter has been populated
 
   function setListingsProgress(container, text) {
     if (!container) return;
@@ -581,9 +582,15 @@
       }
     }
     // If "all" is selected or nothing selected, treat as "all"
-    var hasAllSelected = hoodFilter && Array.from(hoodFilter.options).some(function(opt) {
-      return opt.selected && opt.value === "all";
-    });
+    var hasAllSelected = false;
+    if (hoodFilter) {
+      for (var k = 0; k < hoodFilter.options.length; k++) {
+        if (hoodFilter.options[k].selected && hoodFilter.options[k].value === "all") {
+          hasAllSelected = true;
+          break;
+        }
+      }
+    }
     if (hasAllSelected || selectedHoods.length === 0) {
       selectedHoods = []; // Empty array means "all"
     }
@@ -686,9 +693,20 @@
         select.appendChild(option);
       });
       
-      // If nothing was selected before, select "all"
-      if (selectedValues.length === 0 && !select.multiple) {
-        select.value = "all";
+      // For multiple select: if nothing selected, ensure "all" is selected by default
+      // For single select: if nothing selected, select "all"
+      if (selectedValues.length === 0) {
+        if (select.multiple) {
+          // For multiple select, select "all" option
+          for (var m = 0; m < select.options.length; m++) {
+            if (select.options[m].value === "all") {
+              select.options[m].selected = true;
+              break;
+            }
+          }
+        } else {
+          select.value = "all";
+        }
       }
     }
   }
@@ -733,10 +751,16 @@
     // Clear any existing content
     mapContainer.innerHTML = "";
     
+    // Check if Leaflet is loaded
+    if (typeof L === "undefined" || !L.map) {
+      console.error("Leaflet library not loaded");
+      mapContainer.style.display = "none";
+      return null;
+    }
+    
     var centerLat = validListings.reduce(function(sum, apt) { return sum + Number(apt.latitude); }, 0) / validListings.length;
     var centerLon = validListings.reduce(function(sum, apt) { return sum + Number(apt.longitude); }, 0) / validListings.length;
     
-    // Use setTimeout to ensure container is ready for Leaflet
     var map = null;
     try {
       map = L.map(mapContainer, {
@@ -806,26 +830,54 @@
   function renderApartments(apartments) {
     var container = document.getElementById("apartmentsList");
     if (!container) return;
-    if (apartments && apartments.length) apartmentsData = apartments;
-    populateNeighborhoodFilter("neighborhoodFilter", apartmentsData);
+    // Update apartmentsData if new data provided, otherwise use existing
+    var isNewData = apartments && apartments.length;
+    if (isNewData) {
+      apartmentsData = apartments;
+      // Only populate filter dropdown when we have NEW data (not on filter changes)
+      if (!sfFilterPopulated) {
+        populateNeighborhoodFilter("neighborhoodFilter", apartmentsData);
+        sfFilterPopulated = true;
+      }
+    } else if (!apartmentsData || !apartmentsData.length) {
+      // No data available, can't render
+      container.innerHTML = "<div class=\"no-apartments\">No apartment data available. Please refresh.</div>";
+      return;
+    }
+    
     var list = getFilteredAndSortedApartments();
     container.innerHTML = "";
 
     if (!list.length) {
-      container.innerHTML = "<div class=\"no-apartments\">No apartments found in the $2,000–$5,000 range. Try refreshing or adjust filters.</div>";
+      container.innerHTML = "<div class=\"no-apartments\">No apartments found matching your filters. Try adjusting your search criteria.</div>";
       if (window.sfMap) {
-        window.sfMap.remove();
+        try {
+          window.sfMap.remove();
+        } catch (e) {
+          console.debug("Error removing map:", e);
+        }
         window.sfMap = null;
       }
-      document.getElementById("sfMapContainer").style.display = "none";
+      var mapContainer = document.getElementById("sfMapContainer");
+      if (mapContainer) mapContainer.style.display = "none";
       return;
     }
 
+    // Remove existing map before creating new one
     if (window.sfMap) {
-      window.sfMap.remove();
+      try {
+        window.sfMap.remove();
+      } catch (e) {
+        console.debug("Error removing map:", e);
+      }
       window.sfMap = null;
     }
-    window.sfMap = initializeMap("sfMapContainer", list, "apt-card-sf");
+    
+    // Create map with filtered listings
+    var mapContainer = document.getElementById("sfMapContainer");
+    if (mapContainer) {
+      window.sfMap = initializeMap("sfMapContainer", list, "apt-card-sf");
+    }
 
     list.forEach(function (apt, index) {
       var card = document.createElement("div");
@@ -964,6 +1016,7 @@
 
   // --- Stanford Area Apartments ---
   var stanfordApartmentsData = [];
+  var stanfordFilterPopulated = false; // Track if Stanford filter has been populated
   var STANFORD_NEIGHBORHOODS = {
     "palo alto": [37.4419, -122.1430], "palo-alto": [37.4419, -122.1430],
     "menlo park": [37.4538, -122.1822], "menlo-park": [37.4538, -122.1822],
@@ -1054,9 +1107,15 @@
       }
     }
     // If "all" is selected or nothing selected, treat as "all"
-    var hasAllSelected = hoodFilter && Array.from(hoodFilter.options).some(function(opt) {
-      return opt.selected && opt.value === "all";
-    });
+    var hasAllSelected = false;
+    if (hoodFilter) {
+      for (var k = 0; k < hoodFilter.options.length; k++) {
+        if (hoodFilter.options[k].selected && hoodFilter.options[k].value === "all") {
+          hasAllSelected = true;
+          break;
+        }
+      }
+    }
     if (hasAllSelected || selectedHoods.length === 0) {
       selectedHoods = []; // Empty array means "all"
     }
@@ -1121,9 +1180,14 @@
     var container = document.getElementById("stanfordApartmentsList");
     if (!container) return;
     // Update stanfordApartmentsData if new data provided, otherwise use existing
-    if (apartments && apartments.length) {
+    var isNewData = apartments && apartments.length;
+    if (isNewData) {
       stanfordApartmentsData = apartments;
-      populateNeighborhoodFilter("stanfordNeighborhoodFilter", stanfordApartmentsData);
+      // Only populate filter dropdown when we have NEW data (not on filter changes)
+      if (!stanfordFilterPopulated) {
+        populateNeighborhoodFilter("stanfordNeighborhoodFilter", stanfordApartmentsData);
+        stanfordFilterPopulated = true;
+      }
     } else if (!stanfordApartmentsData || !stanfordApartmentsData.length) {
       // No data available, can't render
       container.innerHTML = "<div class=\"no-apartments\">No apartment data available. Please refresh.</div>";
@@ -1247,9 +1311,6 @@
         });
     });
   }
-  var stanfordNeighborhoodFilter = document.getElementById("stanfordNeighborhoodFilter");
-  var stanfordBedroomFilter = document.getElementById("stanfordBedroomFilter");
-  var stanfordSortBy = document.getElementById("stanfordSortBy");
   function handleStanfordNeighborhoodFilterChange(select) {
     // If "All Areas" is selected, deselect everything else
     // If any specific area is selected, deselect "All Areas"
