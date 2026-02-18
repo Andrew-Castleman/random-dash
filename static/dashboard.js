@@ -566,7 +566,28 @@
     var maxPriceFilter = document.getElementById("maxPriceFilter");
     var sortBy = document.getElementById("sortBy");
     var list = apartmentsData.slice();
-    var hoodVal = hoodFilter ? hoodFilter.value : "all";
+    
+    // Get selected neighborhoods (support multiple selection)
+    var selectedHoods = [];
+    if (hoodFilter) {
+      var options = hoodFilter.options;
+      for (var i = 0; i < options.length; i++) {
+        if (options[i].selected) {
+          var val = options[i].value;
+          if (val !== "all") {
+            selectedHoods.push(val);
+          }
+        }
+      }
+    }
+    // If "all" is selected or nothing selected, treat as "all"
+    var hasAllSelected = hoodFilter && Array.from(hoodFilter.options).some(function(opt) {
+      return opt.selected && opt.value === "all";
+    });
+    if (hasAllSelected || selectedHoods.length === 0) {
+      selectedHoods = []; // Empty array means "all"
+    }
+    
     var bedVal = bedFilter ? bedFilter.value : "all";
     var minPrice = minPriceFilter && minPriceFilter.value && minPriceFilter.value.trim() ? parseInt(minPriceFilter.value.trim(), 10) : null;
     var maxPrice = maxPriceFilter && maxPriceFilter.value && maxPriceFilter.value.trim() ? parseInt(maxPriceFilter.value.trim(), 10) : null;
@@ -578,14 +599,23 @@
 
     // Apply all filters simultaneously
     list = list.filter(function (apt) {
-      // Neighborhood filter
-      if (hoodVal !== "all") {
+      // Neighborhood filter (supports multiple selections)
+      if (selectedHoods.length > 0) {
         var slug = neighborhoodSlug(apt.neighborhood);
         var matchesHood = false;
-        if (hoodVal === "pac-heights") {
-          matchesHood = slug === "pacific-heights" || slug === "pac-heights";
-        } else {
-          matchesHood = slug === hoodVal || slug.indexOf(hoodVal) !== -1 || (apt.neighborhood || "").toLowerCase().indexOf(hoodVal.replace(/-/g, " ")) !== -1;
+        for (var j = 0; j < selectedHoods.length; j++) {
+          var hoodVal = selectedHoods[j];
+          if (hoodVal === "pac-heights") {
+            if (slug === "pacific-heights" || slug === "pac-heights") {
+              matchesHood = true;
+              break;
+            }
+          } else {
+            if (slug === hoodVal || slug.indexOf(hoodVal) !== -1 || (apt.neighborhood || "").toLowerCase().indexOf(hoodVal.replace(/-/g, " ")) !== -1) {
+              matchesHood = true;
+              break;
+            }
+          }
         }
         if (!matchesHood) return false;
       }
@@ -632,6 +662,16 @@
     });
     var sorted = Object.keys(neighborhoods).sort(function (a, b) { return neighborhoods[b] - neighborhoods[a]; });
     if (sorted.length > 0) {
+      // Preserve selected values if any
+      var selectedValues = [];
+      if (select.multiple) {
+        for (var i = 0; i < select.options.length; i++) {
+          if (select.options[i].selected && select.options[i].value !== "all") {
+            selectedValues.push(select.options[i].value);
+          }
+        }
+      }
+      
       select.innerHTML = "<option value=\"all\">All Areas</option>";
       sorted.forEach(function (hood) {
         var count = neighborhoods[hood];
@@ -639,8 +679,17 @@
         var option = document.createElement("option");
         option.value = slug;
         option.textContent = hood + " (" + count + ")";
+        // Restore selection if it was previously selected
+        if (selectedValues.indexOf(slug) !== -1) {
+          option.selected = true;
+        }
         select.appendChild(option);
       });
+      
+      // If nothing was selected before, select "all"
+      if (selectedValues.length === 0 && !select.multiple) {
+        select.value = "all";
+      }
     }
   }
 
@@ -870,6 +919,30 @@
     });
   }
 
+  function handleNeighborhoodFilterChange(select) {
+    // If "All Areas" is selected, deselect everything else
+    // If any specific area is selected, deselect "All Areas"
+    var allOption = null;
+    var otherOptions = [];
+    for (var i = 0; i < select.options.length; i++) {
+      if (select.options[i].value === "all") {
+        allOption = select.options[i];
+      } else {
+        otherOptions.push(select.options[i]);
+      }
+    }
+    
+    if (allOption && allOption.selected) {
+      // "All Areas" selected - deselect all others
+      otherOptions.forEach(function(opt) { opt.selected = false; });
+    } else {
+      // Specific area(s) selected - deselect "All Areas"
+      if (allOption) allOption.selected = false;
+    }
+    
+    applyFilters();
+  }
+
   function applyFilters() {
     renderApartments();
   }
@@ -879,7 +952,11 @@
   var minPriceFilter = document.getElementById("minPriceFilter");
   var maxPriceFilter = document.getElementById("maxPriceFilter");
   var sortBy = document.getElementById("sortBy");
-  if (neighborhoodFilter) neighborhoodFilter.addEventListener("change", applyFilters);
+  if (neighborhoodFilter) {
+    neighborhoodFilter.addEventListener("change", function() {
+      handleNeighborhoodFilterChange(neighborhoodFilter);
+    });
+  }
   if (bedroomFilter) bedroomFilter.addEventListener("change", applyFilters);
   if (minPriceFilter) minPriceFilter.addEventListener("input", applyFilters);
   if (maxPriceFilter) maxPriceFilter.addEventListener("input", applyFilters);
@@ -962,7 +1039,28 @@
     var maxPriceFilter = document.getElementById("stanfordMaxPriceFilter");
     var sortBy = document.getElementById("stanfordSortBy");
     var list = stanfordApartmentsData.slice();
-    var hoodVal = hoodFilter ? hoodFilter.value : "all";
+    
+    // Get selected neighborhoods (support multiple selection)
+    var selectedHoods = [];
+    if (hoodFilter) {
+      var options = hoodFilter.options;
+      for (var i = 0; i < options.length; i++) {
+        if (options[i].selected) {
+          var val = options[i].value;
+          if (val !== "all") {
+            selectedHoods.push(val);
+          }
+        }
+      }
+    }
+    // If "all" is selected or nothing selected, treat as "all"
+    var hasAllSelected = hoodFilter && Array.from(hoodFilter.options).some(function(opt) {
+      return opt.selected && opt.value === "all";
+    });
+    if (hasAllSelected || selectedHoods.length === 0) {
+      selectedHoods = []; // Empty array means "all"
+    }
+    
     var bedVal = bedFilter ? bedFilter.value : "all";
     var minPrice = minPriceFilter && minPriceFilter.value && minPriceFilter.value.trim() ? parseInt(minPriceFilter.value.trim(), 10) : null;
     var maxPrice = maxPriceFilter && maxPriceFilter.value && maxPriceFilter.value.trim() ? parseInt(maxPriceFilter.value.trim(), 10) : null;
@@ -974,11 +1072,18 @@
     
     // Apply all filters simultaneously
     list = list.filter(function (apt) {
-      // Neighborhood filter
-      if (hoodVal !== "all") {
+      // Neighborhood filter (supports multiple selections)
+      if (selectedHoods.length > 0) {
         var slug = neighborhoodSlug(apt.neighborhood);
         var hoodLower = (apt.neighborhood || "").toLowerCase();
-        var matchesHood = slug === hoodVal || slug.indexOf(hoodVal) !== -1 || hoodLower.indexOf(hoodVal.replace(/-/g, " ")) !== -1;
+        var matchesHood = false;
+        for (var j = 0; j < selectedHoods.length; j++) {
+          var hoodVal = selectedHoods[j];
+          if (slug === hoodVal || slug.indexOf(hoodVal) !== -1 || hoodLower.indexOf(hoodVal.replace(/-/g, " ")) !== -1) {
+            matchesHood = true;
+            break;
+          }
+        }
         if (!matchesHood) return false;
       }
       
@@ -1145,6 +1250,30 @@
   var stanfordNeighborhoodFilter = document.getElementById("stanfordNeighborhoodFilter");
   var stanfordBedroomFilter = document.getElementById("stanfordBedroomFilter");
   var stanfordSortBy = document.getElementById("stanfordSortBy");
+  function handleStanfordNeighborhoodFilterChange(select) {
+    // If "All Areas" is selected, deselect everything else
+    // If any specific area is selected, deselect "All Areas"
+    var allOption = null;
+    var otherOptions = [];
+    for (var i = 0; i < select.options.length; i++) {
+      if (select.options[i].value === "all") {
+        allOption = select.options[i];
+      } else {
+        otherOptions.push(select.options[i]);
+      }
+    }
+    
+    if (allOption && allOption.selected) {
+      // "All Areas" selected - deselect all others
+      otherOptions.forEach(function(opt) { opt.selected = false; });
+    } else {
+      // Specific area(s) selected - deselect "All Areas"
+      if (allOption) allOption.selected = false;
+    }
+    
+    applyStanfordFilters();
+  }
+
   function applyStanfordFilters() {
     renderStanfordApartments();
   }
@@ -1154,7 +1283,11 @@
   var stanfordMinPriceFilter = document.getElementById("stanfordMinPriceFilter");
   var stanfordMaxPriceFilter = document.getElementById("stanfordMaxPriceFilter");
   var stanfordSortBy = document.getElementById("stanfordSortBy");
-  if (stanfordNeighborhoodFilter) stanfordNeighborhoodFilter.addEventListener("change", applyStanfordFilters);
+  if (stanfordNeighborhoodFilter) {
+    stanfordNeighborhoodFilter.addEventListener("change", function() {
+      handleStanfordNeighborhoodFilterChange(stanfordNeighborhoodFilter);
+    });
+  }
   if (stanfordBedroomFilter) stanfordBedroomFilter.addEventListener("change", applyStanfordFilters);
   if (stanfordMinPriceFilter) stanfordMinPriceFilter.addEventListener("input", applyStanfordFilters);
   if (stanfordMaxPriceFilter) stanfordMaxPriceFilter.addEventListener("input", applyStanfordFilters);

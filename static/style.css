@@ -703,6 +703,19 @@ body {
   min-height: 40px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
+.apartments-filters select[multiple] {
+  min-height: 120px;
+  padding: var(--space-2);
+  cursor: default;
+}
+.apartments-filters select[multiple] option {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+.apartments-filters select[multiple] option:checked {
+  background: var(--accent-soft);
+  color: var(--text);
+}
 .apartments-filters select:hover {
   border-color: var(--border-strong);
 }
