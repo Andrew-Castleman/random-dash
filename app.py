@@ -20,7 +20,7 @@ try:
 except ImportError:
     pass
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 
 import market_data as md
@@ -404,12 +404,50 @@ def _register_debug_routes():
         return jsonify(debug_info)
 
 
+MAX_APARTMENTS_RETURN = 200
+SCRAPE_POOL_SIZE = 400
+
+# Refresh rate limit: per-IP, generous but prevents credit abuse
+REFRESH_LIMIT_PER_HOUR = 15
+REFRESH_MIN_INTERVAL_SECONDS = 120  # at least 2 min between refreshes
+_refresh_timestamps = {}  # ip -> list of timestamps
+_refresh_lock = threading.Lock()
+
+
+def _client_ip(request):
+    """Client IP for rate limiting (supports X-Forwarded-For behind proxy)."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def _check_refresh_rate_limit(ip):
+    """
+    Return (allowed: bool, retry_after_seconds: int).
+    Prune timestamps older than 1 hour; allow if under limit and last refresh was at least MIN_INTERVAL ago.
+    """
+    now = time.time()
+    window_start = now - 3600
+    with _refresh_lock:
+        timestamps = _refresh_timestamps.get(ip, [])
+        timestamps = [t for t in timestamps if t > window_start]
+        if len(timestamps) >= REFRESH_LIMIT_PER_HOUR:
+            oldest_in_window = min(timestamps) if timestamps else now
+            return False, int(3600 - (now - oldest_in_window)) + 1
+        if timestamps and (now - max(timestamps)) < REFRESH_MIN_INTERVAL_SECONDS:
+            return False, REFRESH_MIN_INTERVAL_SECONDS - int(now - max(timestamps))
+        timestamps.append(now)
+        _refresh_timestamps[ip] = timestamps
+    return True, 0
+
+
 @app.route("/api/apartments")
 def get_apartments():
-    """Fetch and analyze SF apartments from Craigslist in $2K-$5K range."""
+    """Fetch and analyze SF apartments from Craigslist in $2K-$5K range. Returns top 200 by deal score."""
     try:
-        apartments = scrape_sf_apartments(max_listings=40)
-        apartments = analyze_apartment_deals(apartments)
+        apartments = scrape_sf_apartments(max_listings=SCRAPE_POOL_SIZE)
+        apartments = analyze_apartment_deals(apartments, max_return=MAX_APARTMENTS_RETURN)
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
@@ -429,10 +467,23 @@ def get_apartments():
 
 @app.route("/api/apartments/refresh", methods=["POST"])
 def refresh_apartments():
-    """Manually refresh apartment listings."""
+    """Manually refresh apartment listings. Returns top 200 by deal score. Rate-limited per IP."""
+    ip = _client_ip(request)
+    allowed, retry_after = _check_refresh_rate_limit(ip)
+    if not allowed:
+        return (
+            jsonify({
+                "success": False,
+                "error": "refresh_limit",
+                "message": "Too many refreshes. Wait a bit before trying again.",
+                "retry_after_seconds": retry_after,
+            }),
+            429,
+            {"Retry-After": str(max(1, retry_after))},
+        )
     try:
-        apartments = scrape_sf_apartments(max_listings=40)
-        apartments = analyze_apartment_deals(apartments)
+        apartments = scrape_sf_apartments(max_listings=SCRAPE_POOL_SIZE)
+        apartments = analyze_apartment_deals(apartments, max_return=MAX_APARTMENTS_RETURN)
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0

@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Optional
 
 import requests
@@ -874,6 +875,9 @@ def get_neighborhood_market_rates():
 
 # Only run Claude AI summary for the top N by market discount (saves API cost)
 AI_ANALYSIS_TOP_N = 20
+# Parallel workers for scoring pass and for Claude API calls
+SCORE_MAX_WORKERS = 16
+AI_MAX_WORKERS = 10
 
 
 def _compute_discount_and_score(apt, market_rates):
@@ -992,39 +996,58 @@ ANALYSIS: [2-3 sentences: brief overview of the unit, then specific reasons it's
         apt["deal_score"] = apt.get("deal_score", 50)
 
 
-def analyze_apartment_deals(apartments):
-    """Compute discount for all; run Claude AI summary only for top 20 by discount."""
+def analyze_apartment_deals(apartments, max_return=None):
+    """
+    Compute discount for all; run Claude only for top 20 among the listings we will return.
+    If max_return is set (e.g. 200), trim to top max_return by score before any API calls,
+    so we never call Claude for listings that won't be published.
+    """
     if not apartments:
         return []
     market_rates = get_neighborhood_market_rates()
 
-    # First pass: set discount_pct and a simple score for everyone
-    valid = []
-    for apt in apartments:
-        if _compute_discount_and_score(apt, market_rates):
-            valid.append(apt)
+    # First pass (parallel): set discount_pct and simple score for everyone (no API calls)
+    def _score_one(args):
+        apt, rates = args
+        return (apt, _compute_discount_and_score(apt, rates))
 
-    # Rank by discount (best first), then take top N for AI
+    with ThreadPoolExecutor(max_workers=SCORE_MAX_WORKERS) as executor:
+        scored = list(executor.map(_score_one, [(apt, market_rates) for apt in apartments]))
+    valid = [apt for apt, ok in scored if ok]
+
+    # Sort by deal_score and trim to max_return before any expensive API calls
+    valid.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
+    if max_return is not None and len(valid) > max_return:
+        valid = valid[:max_return]
+
+    # Among the ones we'll return, take top N by discount for Claude
     valid.sort(key=lambda x: (x.get("discount_pct") or -999), reverse=True)
     top_for_ai = valid[:AI_ANALYSIS_TOP_N]
 
-    # Get market_rate for context when calling Claude (recompute for each top apt)
-    for apt in top_for_ai:
+    # Build (apt, market_rate) for each; then run Claude in parallel
+    def _market_rate_for(apt):
         hood_key = apt["neighborhood"].lower().strip().replace(" ", "-")
         if hood_key not in market_rates:
             hood_key = hood_key.replace("-", " ")
         hood_rates = market_rates.get(hood_key, market_rates["default"])
         bed_key = "studio" if apt["bedrooms"] == 0 else f"{min(apt['bedrooms'], 3)}br"
-        market_rate = hood_rates.get(bed_key, hood_rates.get("1br"))
-        _call_claude_for_apartment(apt, market_rate)
+        return hood_rates.get(bed_key, hood_rates.get("1br"))
+
+    def _call_claude_task(args):
+        apt, rate = args
+        _call_claude_for_apartment(apt, rate)
+
+    with ThreadPoolExecutor(max_workers=AI_MAX_WORKERS) as executor:
+        tasks = [(apt, _market_rate_for(apt)) for apt in top_for_ai]
+        list(executor.map(_call_claude_task, tasks))
 
     # Rest get a short placeholder (no AI call)
     for apt in valid[AI_ANALYSIS_TOP_N:]:
         apt["deal_analysis"] = "Not in top 20 — no AI summary. See price vs market % above."
 
-    # Sort full list by deal_score (AI-scored top 20 first, then rest by simple score)
-    apartments.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
-    return apartments
+    # Final order by deal_score (AI-scored top 20 first, then rest by simple score)
+    valid.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
+    return valid
 
 
 def get_sample_apartments():
