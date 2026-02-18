@@ -40,6 +40,31 @@ CL_SEARCH_URL_PEN = f"{CL_LISTING_BASE}/search/pen/apa"
 STANFORD_MIN_PRICE = 1500
 STANFORD_MAX_PRICE = 6500
 
+# Only show Stanford-area listings in these cities (near campus/hospital). Lowercase, allow partial match.
+STANFORD_ALLOWED_NEIGHBORHOODS = frozenset([
+    "palo alto", "menlo park", "east palo alto", "stanford", "redwood city", "mountain view",
+    "palo alto / downtown", "downtown palo alto", "palo alto downtown", "old palo alto",
+    "south palo alto", "north palo alto", "college terrace", "crescent park", "duveneck",
+    "menlo park / downtown", "downtown menlo park", "willow", "belle haven", "shoreline",
+    "redwood shores", "woodside", "atherton", "portola valley", "los altos", "los altos hills",
+])
+
+
+def _normalize_listing_url(url: Optional[str]) -> str:
+    """Ensure listing URL is a full Craigslist URL."""
+    if not url or not isinstance(url, str):
+        return ""
+    url = url.strip()
+    if not url:
+        return ""
+    if url.startswith("http://") or url.startswith("https://"):
+        if "craigslist.org" in url:
+            return url
+        return url
+    if url.startswith("/"):
+        return CL_LISTING_BASE + url
+    return CL_LISTING_BASE + "/" + url
+
 # Claude client (optional; falls back to score-only when missing)
 try:
     from anthropic import Anthropic
@@ -204,18 +229,36 @@ def scrape_sf_apartments(max_listings: int = 50) -> list[dict[str, Any]]:
     return get_sample_apartments()
 
 
+def _is_stanford_area_neighborhood(neighborhood: Optional[str]) -> bool:
+    """True if the listing is in an allowed city/area near Stanford (school/hospital)."""
+    if not neighborhood or not isinstance(neighborhood, str):
+        return False
+    n = neighborhood.lower().strip()
+    if not n:
+        return False
+    n_clean = re.sub(r"[^\w\s/-]", "", n).strip()
+    for allowed in STANFORD_ALLOWED_NEIGHBORHOODS:
+        if allowed in n_clean or n_clean in allowed:
+            return True
+    if any(term in n for term in ("palo alto", "menlo park", "east palo alto", "stanford", "redwood city", "mountain view", "redwood shores", "los altos", "woodside", "atherton", "portola valley")):
+        return True
+    return False
+
+
 def scrape_stanford_apartments(max_listings: int = 50) -> list[dict[str, Any]]:
-    """Fetch peninsula (Stanford/Palo Alto/Menlo Park) apartments. Student-friendly price range."""
+    """Fetch peninsula apartments near Stanford (Palo Alto, Menlo Park, etc.). Filter to allowed areas only."""
     apartments = scrape_via_json_api(CL_SEARCH_URL_PEN, STANFORD_MIN_PRICE, STANFORD_MAX_PRICE)
     if apartments:
-        logger.info("Scraped %s peninsula listings via JSON API", len(apartments))
+        apartments = [a for a in apartments if _is_stanford_area_neighborhood(a.get("neighborhood"))]
+        logger.info("Scraped %s Stanford-area listings via JSON API (after neighborhood filter)", len(apartments))
         return apartments[:max_listings]
 
     apartments = scrape_via_html(
-        max_listings, search_url=CL_SEARCH_URL_PEN, min_price=STANFORD_MIN_PRICE, max_price=STANFORD_MAX_PRICE
+        max_listings * 2, search_url=CL_SEARCH_URL_PEN, min_price=STANFORD_MIN_PRICE, max_price=STANFORD_MAX_PRICE
     )
     if apartments:
-        logger.info("Scraped %s peninsula listings via HTML", len(apartments))
+        apartments = [a for a in apartments if _is_stanford_area_neighborhood(a.get("neighborhood"))]
+        logger.info("Scraped %s Stanford-area listings via HTML (after neighborhood filter)", len(apartments))
         return apartments[:max_listings]
 
     logger.warning("Stanford area scrape failed; returning sample data")
@@ -262,7 +305,7 @@ def scrape_via_json_api(
                     default_hood = "San Francisco" if "sfc" in search_url else "Palo Alto"
                     apartments.append({
                         "title": headline,
-                        "url": item.get("url", ""),
+                        "url": _normalize_listing_url(item.get("url", "")),
                         "price": price,
                         "neighborhood": item.get("neighborhood", item.get("location", default_hood)),
                         "bedrooms": item.get("bedrooms") if item.get("bedrooms") is not None else extract_bedrooms(str(headline)),
@@ -353,8 +396,9 @@ def scrape_via_ldjson(html_text, min_price: Optional[int] = None, max_price: Opt
                 if isinstance(url, dict):
                     url = url.get("url") or url.get("@id") or ""
                 url = (url or "").strip()
-                if url.startswith("/"):
-                    url = CL_LISTING_BASE + url
+                url = _normalize_listing_url(url)
+                if not url:
+                    continue
                 price = None
                 offers = item.get("offers")
                 if isinstance(offers, dict):
@@ -424,7 +468,7 @@ def scrape_via_ldjson(html_text, min_price: Optional[int] = None, max_price: Opt
                         lon = None
                 apartments.append({
                     "title": name,
-                    "url": url or f"{CL_SEARCH_URL}",
+                    "url": url or CL_LISTING_BASE + "/search/sfc/apa",
                     "price": price,
                     "neighborhood": neighborhood,
                     "bedrooms": bedrooms,
@@ -521,9 +565,9 @@ def scrape_via_html(
             if unique_links:
                 for link in unique_links[: max_listings * 2]:  # fetch extra, filter by price
                     try:
-                        url = link.get("href", "")
-                        if url.startswith("/"):
-                            url = CL_LISTING_BASE + url
+                        url = _normalize_listing_url(link.get("href", ""))
+                        if not url:
+                            continue
                         raw_title = (link.get_text() or "").strip()
                         if not raw_title:
                             continue
@@ -591,10 +635,8 @@ def scrape_via_html(
             seen = set()
             for link in detail_links[: max_listings * 2]:
                 try:
-                    url = link.get("href", "")
-                    if url.startswith("/"):
-                        url = CL_LISTING_BASE + url
-                    if url in seen:
+                    url = _normalize_listing_url(link.get("href", ""))
+                    if not url or url in seen:
                         continue
                     seen.add(url)
                     raw_title = (link.get_text() or "").strip()
@@ -694,9 +736,7 @@ def parse_listing(listing):
             logger.debug("Could not find title element")
             return None
         apt["title"] = (title_elem.get_text() or "").strip()
-        apt["url"] = title_elem.get("href", "")
-        if apt["url"].startswith("/"):
-            apt["url"] = CL_LISTING_BASE + apt["url"]
+        apt["url"] = _normalize_listing_url(title_elem.get("href", ""))
 
         # ----- Price: multi-strategy from actual elements first -----
         price = None

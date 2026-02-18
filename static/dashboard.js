@@ -635,7 +635,37 @@
 
   // --- Stanford Area Apartments ---
   var stanfordApartmentsData = [];
-  var STANFORD_NEIGHBORHOODS = { "palo alto": [37.4419, -122.1430], "palo-alto": [37.4419, -122.1430], "menlo park": [37.4538, -122.1822], "menlo-park": [37.4538, -122.1822], "redwood city": [37.4852, -122.2364], "redwood-city": [37.4852, -122.2364], "mountain view": [37.3861, -122.0839], "mountain-view": [37.3861, -122.0839], "stanford": [37.4275, -122.1697], "east palo alto": [37.4688, -122.1411], "east-palo-alto": [37.4688, -122.1411] };
+  var STANFORD_NEIGHBORHOODS = {
+    "palo alto": [37.4419, -122.1430], "palo-alto": [37.4419, -122.1430],
+    "menlo park": [37.4538, -122.1822], "menlo-park": [37.4538, -122.1822],
+    "redwood city": [37.4852, -122.2364], "redwood-city": [37.4852, -122.2364], "redwood shores": [37.5311, -122.2486],
+    "mountain view": [37.3861, -122.0839], "mountain-view": [37.3861, -122.0839],
+    "stanford": [37.4275, -122.1697],
+    "east palo alto": [37.4688, -122.1411], "east-palo-alto": [37.4688, -122.1411],
+    "downtown": [37.4419, -122.1430], "downtown palo alto": [37.4419, -122.1430], "downtown menlo park": [37.4538, -122.1822],
+    "old palo alto": [37.4480, -122.1420], "college terrace": [37.4180, -122.1380], "crescent park": [37.4580, -122.1350],
+    "los altos": [37.3852, -122.1141], "los-altos": [37.3852, -122.1141], "woodside": [37.4292, -122.2542], "atherton": [37.4613, -122.1977]
+  };
+  function stanfordCoordsFromNeighborhood(neighborhoodForMap) {
+    var key = (neighborhoodForMap || "palo alto").toString().toLowerCase().replace(/\s+/g, " ").trim().replace(/\s/g, "-");
+    var coords = STANFORD_NEIGHBORHOODS[key] || STANFORD_NEIGHBORHOODS[key.replace(/-/g, " ")];
+    if (!coords && key.indexOf("/") !== -1) {
+      var parts = key.split("/").map(function (p) { return p.replace(/-/g, " ").trim(); });
+      for (var i = 0; i < parts.length && !coords; i++) { coords = STANFORD_NEIGHBORHOODS[parts[i]] || STANFORD_NEIGHBORHOODS[parts[i].replace(/\s/g, "-")]; }
+    }
+    if (!coords) {
+      var lower = key.replace(/-/g, " ");
+      if (lower.indexOf("palo alto") !== -1 || lower.indexOf("palo-alto") !== -1) coords = [37.4419, -122.1430];
+      else if (lower.indexOf("menlo") !== -1) coords = [37.4538, -122.1822];
+      else if (lower.indexOf("redwood") !== -1) coords = [37.4852, -122.2364];
+      else if (lower.indexOf("mountain view") !== -1 || lower.indexOf("mountain-view") !== -1) coords = [37.3861, -122.0839];
+      else if (lower.indexOf("stanford") !== -1) coords = [37.4275, -122.1697];
+      else if (lower.indexOf("east palo") !== -1) coords = [37.4688, -122.1411];
+      else if (lower.indexOf("los altos") !== -1) coords = [37.3852, -122.1141];
+      else if (lower.indexOf("woodside") !== -1 || lower.indexOf("atherton") !== -1) coords = [37.4292, -122.2542];
+    }
+    return coords || [37.4419, -122.1430];
+  }
   var STANFORD_DEFAULT = [37.4419, -122.1430];
 
   function loadStanfordApartments() {
@@ -732,13 +762,8 @@
       var lat = apt.latitude != null && apt.longitude != null ? Number(apt.latitude) : null;
       var lon = apt.latitude != null && apt.longitude != null ? Number(apt.longitude) : null;
       if (lat === null || lon === null) {
-        var key = neighborhoodForMap.toLowerCase().replace(/\s+/g, " ").trim().replace(/\s/g, "-");
-        var coords = STANFORD_NEIGHBORHOODS[key] || STANFORD_NEIGHBORHOODS[key.replace(/-/g, " ")];
-        if (!coords && key.indexOf("/") !== -1) {
-          var parts = key.split("/").map(function (p) { return p.replace(/-/g, " ").trim(); });
-          for (var i = 0; i < parts.length && !coords; i++) { coords = STANFORD_NEIGHBORHOODS[parts[i]] || STANFORD_NEIGHBORHOODS[parts[i].replace(/\s/g, "-")]; }
-        }
-        if (coords) { lat = coords[0]; lon = coords[1]; } else { lat = STANFORD_DEFAULT[0]; lon = STANFORD_DEFAULT[1]; }
+        var coords = stanfordCoordsFromNeighborhood(neighborhoodForMap);
+        lat = coords[0]; lon = coords[1];
       }
       var photoBox = "";
       if (apt.thumbnail_url) {
