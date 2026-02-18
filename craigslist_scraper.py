@@ -9,6 +9,8 @@ import json
 import logging
 import os
 import re
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Optional
 
@@ -879,6 +881,58 @@ AI_ANALYSIS_TOP_N = 20
 SCORE_MAX_WORKERS = 16
 AI_MAX_WORKERS = 10
 
+# Cache analyzed results to avoid repeated Claude API calls (key=listing url, value=analysis data)
+# TTL in seconds; configurable via APARTMENT_ANALYSIS_CACHE_TTL (default 1 hour)
+try:
+    from config import APARTMENT_ANALYSIS_CACHE_TTL
+except ImportError:
+    APARTMENT_ANALYSIS_CACHE_TTL = int(os.environ.get("APARTMENT_ANALYSIS_CACHE_TTL", "3600"))
+
+_analysis_cache: dict[str, dict] = {}
+_analysis_cache_lock = threading.Lock()
+
+
+def _cache_key(url: Optional[str]) -> Optional[str]:
+    """Normalize listing URL for cache key (strip fragment)."""
+    if not url or not isinstance(url, str):
+        return None
+    return url.split("#")[0].rstrip("/") or url
+
+
+def _get_cached_analysis(url: Optional[str]):
+    """Return cached {deal_score, deal_analysis, discount_pct} or None if miss/expired."""
+    key = _cache_key(url)
+    if not key:
+        return None
+    now = time.time()
+    with _analysis_cache_lock:
+        entry = _analysis_cache.get(key)
+    if not entry:
+        return None
+    if (now - entry["cached_at"]) > APARTMENT_ANALYSIS_CACHE_TTL:
+        with _analysis_cache_lock:
+            _analysis_cache.pop(key, None)
+        return None
+    return {
+        "deal_score": entry.get("deal_score"),
+        "deal_analysis": entry.get("deal_analysis"),
+        "discount_pct": entry.get("discount_pct"),
+    }
+
+
+def _set_cached_analysis(url: Optional[str], deal_score: Any, deal_analysis: Any, discount_pct: Any) -> None:
+    """Store analysis in cache."""
+    key = _cache_key(url)
+    if not key:
+        return
+    with _analysis_cache_lock:
+        _analysis_cache[key] = {
+            "deal_score": deal_score,
+            "deal_analysis": deal_analysis,
+            "discount_pct": discount_pct,
+            "cached_at": time.time(),
+        }
+
 
 def _compute_discount_and_score(apt, market_rates):
     """Set discount_pct and a simple deal_score for ranking. Returns True if apt is valid.
@@ -1048,6 +1102,44 @@ def analyze_apartment_deals(apartments, max_return=None):
     # Final order by deal_score (AI-scored top 20 first, then rest by simple score)
     valid.sort(key=lambda x: x.get("deal_score", 0), reverse=True)
     return valid
+
+
+def analyze_apartment_deals_cached(apartments: list[dict], max_return: Optional[int] = None) -> list[dict]:
+    """
+    Like analyze_apartment_deals, but use a cache keyed by listing URL so we only call Claude
+    for listings that are new or whose cache entry has expired. Reduces API cost on refresh/page load.
+    """
+    if not apartments:
+        return []
+    now = time.time()
+    uncached = []
+    for apt in apartments:
+        cached = _get_cached_analysis(apt.get("url"))
+        if cached is not None:
+            apt["deal_score"] = cached.get("deal_score")
+            apt["deal_analysis"] = cached.get("deal_analysis")
+            apt["discount_pct"] = cached.get("discount_pct")
+        else:
+            uncached.append(apt)
+
+    if uncached:
+        analyzed = analyze_apartment_deals(uncached, max_return=None)
+        for apt in analyzed:
+            _set_cached_analysis(
+                apt.get("url"),
+                apt.get("deal_score"),
+                apt.get("deal_analysis"),
+                apt.get("discount_pct"),
+            )
+        logger.info("Analyzed %s uncached listings (Claude used for top 20 of those); %s served from cache", len(uncached), len(apartments) - len(uncached))
+    else:
+        logger.info("All %s listings served from cache (no Claude calls)", len(apartments))
+
+    # Full list: cached entries already updated in place; uncached were mutated by analyze_apartment_deals
+    apartments_sorted = sorted(apartments, key=lambda x: (x.get("deal_score") is None, -(x.get("deal_score") or 0)))
+    if max_return is not None:
+        apartments_sorted = apartments_sorted[:max_return]
+    return apartments_sorted
 
 
 def get_sample_apartments():

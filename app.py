@@ -27,7 +27,7 @@ import market_data as md
 import agent_brain as brain
 from database import init_db, save_portfolio_snapshot
 from economic_calendar import get_economic_calendar
-from craigslist_scraper import scrape_sf_apartments, analyze_apartment_deals
+from craigslist_scraper import scrape_sf_apartments, analyze_apartment_deals_cached
 
 try:
     from config import PORT, FLASK_DEBUG
@@ -447,7 +447,7 @@ def get_apartments():
     """Fetch and analyze SF apartments from Craigslist in $2K-$5K range. Returns top 200 by deal score."""
     try:
         apartments = scrape_sf_apartments(max_listings=SCRAPE_POOL_SIZE)
-        apartments = analyze_apartment_deals(apartments, max_return=MAX_APARTMENTS_RETURN)
+        apartments = analyze_apartment_deals_cached(apartments, max_return=MAX_APARTMENTS_RETURN)
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
@@ -483,7 +483,7 @@ def refresh_apartments():
         )
     try:
         apartments = scrape_sf_apartments(max_listings=SCRAPE_POOL_SIZE)
-        apartments = analyze_apartment_deals(apartments, max_return=MAX_APARTMENTS_RETURN)
+        apartments = analyze_apartment_deals_cached(apartments, max_return=MAX_APARTMENTS_RETURN)
         total = len(apartments)
         excellent = len([a for a in apartments if a.get("deal_score", 0) >= 80])
         avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0

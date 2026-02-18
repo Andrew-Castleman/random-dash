@@ -17,6 +17,9 @@ FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").strip().lower() in ("1", "t
 REQUEST_TIMEOUT = int(os.environ.get("SCRAPER_TIMEOUT", "15"))
 SCRAPER_DEBUG = os.environ.get("SCRAPER_DEBUG", "false").strip().lower() in ("1", "true", "yes")
 
+# Apartment analysis cache: how long (seconds) to reuse Claude results per listing URL. Default 1 hour.
+APARTMENT_ANALYSIS_CACHE_TTL = int(os.environ.get("APARTMENT_ANALYSIS_CACHE_TTL", "3600"))
+
 # Database
 DATABASE_PATH = BASE_DIR / os.environ.get("DATABASE_FILE", "market_dashboard.db")
 
