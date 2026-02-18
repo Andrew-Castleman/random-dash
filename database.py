@@ -4,11 +4,14 @@ Numeric fields are sanitized (NaN -> 0) before insert.
 Set DATABASE_FILE in env to override DB location (relative to project root).
 """
 
+import logging
 import math
 import sqlite3
 import threading
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 try:
     from config import DATABASE_PATH as DB_PATH
@@ -67,6 +70,11 @@ def init_db():
                 );
                 CREATE INDEX IF NOT EXISTS idx_portfolio_ts ON portfolio_snapshots(timestamp);
                 CREATE INDEX IF NOT EXISTS idx_trending_ts ON trending_snapshots(timestamp);
+                CREATE TABLE IF NOT EXISTS api_call_counter (
+                    month_year TEXT PRIMARY KEY,
+                    call_count INTEGER NOT NULL DEFAULT 0,
+                    last_reset TEXT NOT NULL
+                );
             """)
             conn.commit()
         finally:
@@ -102,5 +110,80 @@ def save_trending_snapshot(ticker: str, price: float, change_percent: float, tre
                 (ticker, price, change_percent, trend_reason or "", analysis or "", ts),
             )
             conn.commit()
+        finally:
+            conn.close()
+
+
+def get_monthly_api_call_count() -> int:
+    """Get current month's API call count. Returns 0 if no record exists."""
+    from datetime import datetime
+    month_year = datetime.now().strftime("%Y-%m")
+    with _lock:
+        conn = get_conn()
+        try:
+            row = conn.execute(
+                "SELECT call_count FROM api_call_counter WHERE month_year = ?",
+                (month_year,)
+            ).fetchone()
+            return int(row[0]) if row else 0
+        finally:
+            conn.close()
+
+
+def increment_api_call_count() -> bool:
+    """
+    Increment API call count for current month. Returns True if successful.
+    If count >= 50, returns False and does not increment.
+    Uses atomic UPDATE with WHERE clause to prevent going over limit.
+    """
+    from datetime import datetime
+    month_year = datetime.now().strftime("%Y-%m")
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    with _lock:
+        conn = get_conn()
+        try:
+            # First, ensure record exists
+            conn.execute(
+                "INSERT OR IGNORE INTO api_call_counter (month_year, call_count, last_reset) VALUES (?, 0, ?)",
+                (month_year, now_iso)
+            )
+            # Atomic increment only if count < 50
+            cursor = conn.execute(
+                "UPDATE api_call_counter SET call_count = call_count + 1 WHERE month_year = ? AND call_count < 50",
+                (month_year,)
+            )
+            conn.commit()
+            # If rows_affected > 0, increment succeeded
+            success = cursor.rowcount > 0
+            if not success:
+                # Check if we're at limit
+                row = conn.execute(
+                    "SELECT call_count FROM api_call_counter WHERE month_year = ?",
+                    (month_year,)
+                ).fetchone()
+                if row and int(row[0]) >= 50:
+                    logger.warning(f"API call limit reached: {int(row[0])}/50 for {month_year}")
+            return success
+        finally:
+            conn.close()
+
+
+def reset_monthly_api_counter_if_needed():
+    """Reset counter if we're in a new month. Called automatically on init."""
+    from datetime import datetime
+    month_year = datetime.now().strftime("%Y-%m")
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    with _lock:
+        conn = get_conn()
+        try:
+            # Check if we need to reset (new month)
+            row = conn.execute(
+                "SELECT month_year FROM api_call_counter WHERE month_year != ?",
+                (month_year,)
+            ).fetchone()
+            if row:
+                # Delete old month records
+                conn.execute("DELETE FROM api_call_counter WHERE month_year != ?", (month_year,))
+                conn.commit()
         finally:
             conn.close()

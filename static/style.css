@@ -1114,3 +1114,38 @@ body[data-theme="stanford-apartments"] #stanford-apartments-tab .error-message {
 #stanford-apartments-tab .error-message { color: #6b7280; padding: 48px 24px; }
 #apartments-tab .error-message,
 #stanford-apartments-tab .error-message { color: #dc2626; }
+
+/* Site footer (dashboard + legal pages) */
+.site-footer {
+  margin-top: 32px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  font-size: 0.875rem;
+}
+.site-footer a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.site-footer a:hover {
+  color: var(--text);
+}
+
+/* Legal / content pages (about, privacy, contact, terms) */
+.legal-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 0;
+}
+.legal-page h2 { margin-top: 0; font-size: 1.5rem; }
+.legal-page h3 { margin-top: 1.5em; font-size: 1.1rem; }
+.legal-page p, .legal-page ul { color: var(--text-muted); }
+.legal-page a { color: var(--accent); text-decoration: none; }
+.legal-page a:hover { text-decoration: underline; }
+.legal-page ul { padding-left: 1.25em; }
+.site-title-link { color: inherit; text-decoration: none; }
+.site-title-link:hover { color: var(--accent); }
+.contact-email { font-size: 1.125rem; }
+.contact-email a { font-weight: 600; }

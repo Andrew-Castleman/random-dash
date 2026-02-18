@@ -8,8 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:wght@400;600&display=swap" rel="stylesheet">
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8564212603961775"
-       crossorigin="anonymous"></script>
+  <!-- AdSense is injected only on portal tabs (SF Listings, Stanford Area) via dashboard.js -->
 </head>
 <body>
   <div class="dashboard">
@@ -34,8 +33,10 @@
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <div class="dashboard-tabs">
-      <button type="button" class="tab-btn active" data-tab="apartments" aria-selected="true">🏠 SF Apartments</button>
+      <button type="button" class="tab-btn active" data-tab="apartments" aria-selected="true">🏠 SF Listings</button>
       <button type="button" class="tab-btn" data-tab="stanford-apartments" aria-selected="false">🎓 Stanford Area</button>
+      <button type="button" class="tab-btn" data-tab="apartments-alt" aria-selected="false">🏠 SF Listings (alternate)</button>
+      <button type="button" class="tab-btn" data-tab="stanford-apartments-alt" aria-selected="false">🎓 Stanford Area (alternate)</button>
       <button type="button" class="tab-btn tab-btn--secondary" data-tab="markets" aria-selected="false">📊 Markets</button>
     </div>
 
@@ -112,8 +113,8 @@
       <div class="apartments-container">
         <div class="apartments-header">
           <div>
-            <h2 class="apartments-title">🏠 San Francisco Apartment Deals</h2>
-            <p class="range-subtitle">Apartments $2,000 – $5,000/month</p>
+            <h2 class="apartments-title">🏠 SF Listings</h2>
+            <p class="range-subtitle">Listings in San Francisco — $2,000 – $5,000/month</p>
           </div>
           <button type="button" id="refreshApartments" class="refresh-btn">🔄 Refresh Listings</button>
         </div>
@@ -167,8 +168,8 @@
       <div class="apartments-container">
         <div class="apartments-header">
           <div>
-            <h2 class="apartments-title">🎓 Stanford Area Apartments</h2>
-            <p class="range-subtitle">Palo Alto, Menlo Park, Redwood City — $1,500 – $6,500/month (student-friendly, incl. 2BR)</p>
+            <h2 class="apartments-title">🎓 Stanford Area Listings</h2>
+            <p class="range-subtitle">Palo Alto, Menlo Park, Redwood City — $1,500 – $6,500/month (incl. 2BR)</p>
           </div>
           <button type="button" id="refreshStanfordApartments" class="refresh-btn">🔄 Refresh Listings</button>
         </div>
@@ -213,6 +214,119 @@
         <div id="stanfordApartmentsList" class="apartments-grid"></div>
       </div>
     </div>
+
+    <div class="tab-content" id="apartments-alt-tab">
+      <div class="apartments-container">
+        <div class="apartments-header">
+          <div>
+            <h2 class="apartments-title">🏠 SF Listings (alternate)</h2>
+            <p class="range-subtitle">Listings in San Francisco — $2,000 – $5,000/month</p>
+          </div>
+          <button type="button" id="refreshApartmentsAlt" class="refresh-btn">🔄 Refresh Listings</button>
+        </div>
+        <div class="apartments-filters">
+          <select id="neighborhoodFilterAlt" aria-label="Filter by neighborhood">
+            <option value="all">All Neighborhoods</option>
+            <option value="mission">Mission</option>
+            <option value="soma">SoMa</option>
+            <option value="nob-hill">Nob Hill</option>
+            <option value="marina">Marina</option>
+            <option value="sunset">Sunset</option>
+            <option value="richmond">Richmond</option>
+            <option value="castro">Castro</option>
+            <option value="haight">Haight-Ashbury</option>
+            <option value="pac-heights">Pacific Heights</option>
+            <option value="inner-sunset">Inner Sunset</option>
+          </select>
+          <select id="bedroomFilterAlt" aria-label="Filter by bedrooms">
+            <option value="all">All Bedrooms</option>
+            <option value="studio">Studio</option>
+            <option value="1">1 Bedroom</option>
+            <option value="2">2 Bedrooms</option>
+            <option value="3">3+ Bedrooms</option>
+          </select>
+          <select id="sortByAlt" aria-label="Sort by">
+            <option value="best-deal">Best Deal Score</option>
+            <option value="price-low">Lowest Price</option>
+            <option value="price-sqft">Price per Sqft</option>
+            <option value="newest">Newest First</option>
+          </select>
+        </div>
+        <div class="apartments-stats">
+          <div class="stat">
+            <span class="stat-label">Total Listings</span>
+            <span class="stat-value" id="totalListingsAlt">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Excellent Deals</span>
+            <span class="stat-value" id="excellentDealsAlt">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Average Price</span>
+            <span class="stat-value" id="avgPriceAlt">$0</span>
+          </div>
+        </div>
+        <div id="apartmentsListAlt" class="apartments-grid"></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="stanford-apartments-alt-tab">
+      <div class="apartments-container">
+        <div class="apartments-header">
+          <div>
+            <h2 class="apartments-title">🎓 Stanford Area Listings (alternate)</h2>
+            <p class="range-subtitle">Palo Alto, Menlo Park, Redwood City — $1,500 – $6,500/month (incl. 2BR)</p>
+          </div>
+          <button type="button" id="refreshStanfordApartmentsAlt" class="refresh-btn">🔄 Refresh Listings</button>
+        </div>
+        <div class="apartments-filters">
+          <select id="stanfordNeighborhoodFilterAlt" aria-label="Filter by neighborhood">
+            <option value="all">All Areas</option>
+            <option value="palo-alto">Palo Alto</option>
+            <option value="menlo-park">Menlo Park</option>
+            <option value="redwood-city">Redwood City</option>
+            <option value="mountain-view">Mountain View</option>
+            <option value="stanford">Stanford</option>
+            <option value="east-palo-alto">East Palo Alto</option>
+          </select>
+          <select id="stanfordBedroomFilterAlt" aria-label="Filter by bedrooms">
+            <option value="all">All Bedrooms</option>
+            <option value="studio">Studio</option>
+            <option value="1">1 Bedroom</option>
+            <option value="2">2 Bedrooms</option>
+            <option value="3">3+ Bedrooms</option>
+          </select>
+          <select id="stanfordSortByAlt" aria-label="Sort by">
+            <option value="best-deal">Best Deal Score</option>
+            <option value="price-low">Lowest Price</option>
+            <option value="price-sqft">Price per Sqft</option>
+            <option value="newest">Newest First</option>
+          </select>
+        </div>
+        <div class="apartments-stats">
+          <div class="stat">
+            <span class="stat-label">Total Listings</span>
+            <span class="stat-value" id="stanfordTotalListingsAlt">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Excellent Deals</span>
+            <span class="stat-value" id="stanfordExcellentDealsAlt">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Average Price</span>
+            <span class="stat-value" id="stanfordAvgPriceAlt">$0</span>
+          </div>
+        </div>
+        <div id="stanfordApartmentsListAlt" class="apartments-grid"></div>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <a href="/about">About</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/terms">Terms of Service</a>
+      <a href="/contact">Contact</a>
+    </footer>
   </div>
   <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 </body>

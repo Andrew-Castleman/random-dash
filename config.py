@@ -26,3 +26,9 @@ DATABASE_PATH = BASE_DIR / os.environ.get("DATABASE_FILE", "market_dashboard.db"
 # API keys (loaded from .env; never log or expose)
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 FRED_API_KEY = os.environ.get("FRED_API_KEY", "")
+RENTCAST_API_KEY = os.environ.get("RENTCAST_API_KEY", "")
+
+# Portal (API) listings: cache TTL and min seconds between API calls per region
+# Default cache TTL: 24 hours (86400 seconds) to minimize expensive API calls
+PORTAL_CACHE_TTL = int(os.environ.get("PORTAL_CACHE_TTL", "86400"))
+PORTAL_MIN_REQUEST_INTERVAL = int(os.environ.get("PORTAL_MIN_REQUEST_INTERVAL", "120"))

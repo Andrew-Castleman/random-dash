@@ -33,6 +33,7 @@ from craigslist_scraper import (
     analyze_apartment_deals_cached,
     get_stanford_market_rates,
 )
+from portal_listings import get_portal_listings_sf, get_portal_listings_stanford
 
 try:
     from config import PORT, FLASK_DEBUG
@@ -301,6 +302,26 @@ def index():
     return render_template("dashboard.html"), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
+@app.route("/contact")
+def contact():
+    return render_template("contact.html")
+
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
+
 @app.route("/api/refresh", methods=["POST"])
 def api_manual_refresh():
     """Trigger manual refresh. Never 500. Returns succeeded/failed and duration."""
@@ -447,9 +468,45 @@ def _check_refresh_rate_limit(ip):
     return True, 0
 
 
+@app.route("/api/apartments/portal")
+def get_apartments_portal():
+    """Portal (API) listings for SF. Cached; rate-limited. Same response shape as get_apartments."""
+    try:
+        apartments = get_portal_listings_sf(min_price=2000, max_price=5000, max_return=MAX_APARTMENTS_RETURN)
+        total = len(apartments)
+        excellent = len([a for a in apartments if (a.get("deal_score") or 0) >= 80])
+        avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
+        return jsonify({
+            "apartments": apartments,
+            "stats": {"total": total, "excellent_deals": excellent, "average_price": avg_price},
+            "last_updated": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Portal SF endpoint: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/apartments/portal/stanford")
+def get_apartments_portal_stanford():
+    """Portal (API) listings for Stanford area. Cached; rate-limited."""
+    try:
+        apartments = get_portal_listings_stanford(min_price=1500, max_price=6500, max_return=MAX_APARTMENTS_RETURN)
+        total = len(apartments)
+        excellent = len([a for a in apartments if (a.get("deal_score") or 0) >= 80])
+        avg_price = round(sum(a["price"] for a in apartments if a.get("price")) / total) if total > 0 else 0
+        return jsonify({
+            "apartments": apartments,
+            "stats": {"total": total, "excellent_deals": excellent, "average_price": avg_price},
+            "last_updated": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.exception("Portal Stanford endpoint: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/apartments")
 def get_apartments():
-    """Fetch and analyze SF apartments from Craigslist in $2K-$5K range. Returns top 200 by deal score."""
+    """Alternate source: SF apartments in $2K-$5K range. Same response shape."""
     try:
         apartments = scrape_sf_apartments(max_listings=SCRAPE_POOL_SIZE)
         apartments = analyze_apartment_deals_cached(apartments, max_return=MAX_APARTMENTS_RETURN)

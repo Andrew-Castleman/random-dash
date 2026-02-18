@@ -19,8 +19,13 @@
     var u = url.trim();
     if (!u) return "#";
     if (u.indexOf("http://") === 0 || u.indexOf("https://") === 0) return u;
+    if (u.indexOf("mailto:") === 0) return u;
     if (u.indexOf("/") === 0) return "https://sfbay.craigslist.org" + u;
     return "https://sfbay.craigslist.org/" + u;
+  }
+
+  function listingUrl(apt) {
+    return (apt && apt.source === "portal" && apt.url) ? apt.url : ensureCraigslistListingUrl(apt && apt.url);
   }
 
   function setLoading(widgetId, msg) {
@@ -422,13 +427,26 @@
 
   loadDashboard(true);
 
-  // --- Tab navigation (set theme for WSJ vs Zillow styling) ---
+  function injectAdSenseOnce() {
+    if (window.adsenseInjected) return;
+    window.adsenseInjected = true;
+    var s = document.createElement("script");
+    s.async = true;
+    s.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8564212603961775";
+    s.crossOrigin = "anonymous";
+    document.head.appendChild(s);
+  }
+
   function setDashboardTheme(tabName) {
-    document.body.setAttribute("data-theme", tabName || "markets");
+    var t = tabName || "markets";
+    if (t === "apartments-alt") t = "apartments";
+    if (t === "stanford-apartments-alt") t = "stanford-apartments";
+    document.body.setAttribute("data-theme", t);
   }
   var activeTabBtn = document.querySelector(".tab-btn.active");
   var initialTab = activeTabBtn ? activeTabBtn.getAttribute("data-tab") : "apartments";
   setDashboardTheme(initialTab);
+  if (initialTab === "apartments" || initialTab === "stanford-apartments") injectAdSenseOnce();
   if (initialTab === "apartments" && !window.apartmentsLoaded) {
     loadApartments();
     window.apartmentsLoaded = true;
@@ -436,6 +454,14 @@
   if (initialTab === "stanford-apartments" && !window.stanfordApartmentsLoaded) {
     loadStanfordApartments();
     window.stanfordApartmentsLoaded = true;
+  }
+  if (initialTab === "apartments-alt" && !window.apartmentsAltLoaded) {
+    loadApartmentsAlt();
+    window.apartmentsAltLoaded = true;
+  }
+  if (initialTab === "stanford-apartments-alt" && !window.stanfordApartmentsAltLoaded) {
+    loadStanfordApartmentsAlt();
+    window.stanfordApartmentsAltLoaded = true;
   }
 
   document.querySelectorAll(".tab-btn").forEach(function (btn) {
@@ -448,6 +474,7 @@
       setDashboardTheme(tabName);
       var content = document.getElementById(tabName + "-tab");
       if (content) content.classList.add("active");
+      if (tabName === "apartments" || tabName === "stanford-apartments") injectAdSenseOnce();
       if (tabName === "apartments" && !window.apartmentsLoaded) {
         loadApartments();
         window.apartmentsLoaded = true;
@@ -455,6 +482,14 @@
       if (tabName === "stanford-apartments" && !window.stanfordApartmentsLoaded) {
         loadStanfordApartments();
         window.stanfordApartmentsLoaded = true;
+      }
+      if (tabName === "apartments-alt" && !window.apartmentsAltLoaded) {
+        loadApartmentsAlt();
+        window.apartmentsAltLoaded = true;
+      }
+      if (tabName === "stanford-apartments-alt" && !window.stanfordApartmentsAltLoaded) {
+        loadStanfordApartmentsAlt();
+        window.stanfordApartmentsAltLoaded = true;
       }
     });
   });
@@ -467,7 +502,7 @@
     if (!btn) return;
     btn.disabled = true;
     btn.textContent = "\uD83D\uDD04 Loading…";
-    fetch("/api/apartments")
+    fetch("/api/apartments/portal")
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
@@ -576,8 +611,9 @@
         if (coords) { lat = coords[0]; lon = coords[1]; } else { lat = defaultSF[0]; lon = defaultSF[1]; }
       }
       var photoBox = "";
+      var viewUrl = listingUrl(apt);
       if (apt.thumbnail_url) {
-        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
+        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
       } else if (lat !== null && lon !== null) {
         var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
         var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
@@ -606,7 +642,7 @@
         marketHtml +
         "</div>" +
         "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
-        "<a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
+        "<a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
       container.appendChild(card);
     });
   }
@@ -616,14 +652,12 @@
     refreshBtn.addEventListener("click", function () {
       refreshBtn.disabled = true;
       refreshBtn.textContent = "\uD83D\uDD04 Refreshing…";
-      fetch("/api/apartments/refresh", { method: "POST" })
+      fetch("/api/apartments/portal")
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.success) {
-            apartmentsData = data.apartments || [];
-            renderApartments(apartmentsData);
-            updateApartmentStats(data.stats || {});
-          }
+          apartmentsData = data.apartments || [];
+          renderApartments(apartmentsData);
+          updateApartmentStats(data.stats || {});
           refreshBtn.textContent = "\uD83D\uDD04 Refresh Listings";
           refreshBtn.disabled = false;
         })
@@ -682,7 +716,7 @@
     if (!btn) return;
     btn.disabled = true;
     btn.textContent = "\uD83D\uDD04 Loading…";
-    fetch("/api/apartments/stanford")
+    fetch("/api/apartments/portal/stanford")
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.error) throw new Error(data.error);
@@ -775,8 +809,9 @@
         lat = coords[0]; lon = coords[1];
       }
       var photoBox = "";
+      var viewUrl = listingUrl(apt);
       if (apt.thumbnail_url) {
-        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
+        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
       } else if (lat !== null && lon !== null) {
         var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
         var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
@@ -805,7 +840,7 @@
         marketHtml +
         "</div>" +
         "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
-        "<a href=\"" + escapeHtml(ensureCraigslistListingUrl(apt.url)) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
+        "<a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
       container.appendChild(card);
     });
   }
@@ -815,14 +850,12 @@
     refreshStanfordBtn.addEventListener("click", function () {
       refreshStanfordBtn.disabled = true;
       refreshStanfordBtn.textContent = "\uD83D\uDD04 Refreshing…";
-      fetch("/api/apartments/stanford/refresh", { method: "POST" })
+      fetch("/api/apartments/portal/stanford")
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.success) {
-            stanfordApartmentsData = data.apartments || [];
-            renderStanfordApartments(stanfordApartmentsData);
-            updateStanfordApartmentStats(data.stats || {});
-          }
+          stanfordApartmentsData = data.apartments || [];
+          renderStanfordApartments(stanfordApartmentsData);
+          updateStanfordApartmentStats(data.stats || {});
           refreshStanfordBtn.textContent = "\uD83D\uDD04 Refresh Listings";
           refreshStanfordBtn.disabled = false;
         })
@@ -839,4 +872,269 @@
   if (stanfordNeighborhoodFilter) stanfordNeighborhoodFilter.addEventListener("change", function () { renderStanfordApartments(); });
   if (stanfordBedroomFilter) stanfordBedroomFilter.addEventListener("change", function () { renderStanfordApartments(); });
   if (stanfordSortBy) stanfordSortBy.addEventListener("change", function () { renderStanfordApartments(); });
+
+  // --- SF Listings (alternate) ---
+  var apartmentsAltData = [];
+  function loadApartmentsAlt() {
+    var btn = document.getElementById("refreshApartmentsAlt");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "\uD83D\uDD04 Loading…";
+    fetch("/api/apartments")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error);
+        apartmentsAltData = data.apartments || [];
+        renderApartmentsAlt();
+        updateApartmentStatsAlt(data.stats || {});
+        btn.textContent = "\uD83D\uDD04 Refresh Listings";
+        btn.disabled = false;
+      })
+      .catch(function (err) {
+        console.error("Error loading alternate SF listings:", err);
+        var list = document.getElementById("apartmentsListAlt");
+        if (list) list.innerHTML = "<div class=\"error-message\">Error loading listings. Please try again.</div>";
+        btn.textContent = "\uD83D\uDD04 Try Again";
+        btn.disabled = false;
+      });
+  }
+  function updateApartmentStatsAlt(stats) {
+    var totalEl = document.getElementById("totalListingsAlt");
+    var excellentEl = document.getElementById("excellentDealsAlt");
+    var avgEl = document.getElementById("avgPriceAlt");
+    if (totalEl) totalEl.textContent = stats.total || 0;
+    if (excellentEl) excellentEl.textContent = stats.excellent_deals || 0;
+    if (avgEl) avgEl.textContent = stats.average_price ? "$" + Number(stats.average_price).toLocaleString() : "$0";
+  }
+  function getFilteredAndSortedApartmentsAlt() {
+    var hoodFilter = document.getElementById("neighborhoodFilterAlt");
+    var bedFilter = document.getElementById("bedroomFilterAlt");
+    var sortBy = document.getElementById("sortByAlt");
+    var list = apartmentsAltData.slice();
+    var hoodVal = hoodFilter ? hoodFilter.value : "all";
+    var bedVal = bedFilter ? bedFilter.value : "all";
+    var sortVal = sortBy ? sortBy.value : "best-deal";
+    if (hoodVal !== "all") {
+      list = list.filter(function (apt) {
+        var slug = neighborhoodSlug(apt.neighborhood);
+        if (hoodVal === "pac-heights") return slug === "pacific-heights" || slug === "pac-heights";
+        return slug === hoodVal || slug.indexOf(hoodVal) !== -1;
+      });
+    }
+    if (bedVal !== "all") {
+      list = list.filter(function (apt) {
+        var b = apt.bedrooms;
+        if (bedVal === "studio") return b === 0;
+        if (bedVal === "3") return b >= 3;
+        return b === parseInt(bedVal, 10);
+      });
+    }
+    if (sortVal === "best-deal") list.sort(function (a, b) { return (b.deal_score || 0) - (a.deal_score || 0); });
+    else if (sortVal === "price-low") list.sort(function (a, b) { return (a.price || 0) - (b.price || 0); });
+    else if (sortVal === "price-sqft") list.sort(function (a, b) { return (a.price_per_sqft || 999) - (b.price_per_sqft || 999); });
+    else if (sortVal === "newest") list.sort(function (a, b) { return (b.posted_date || "").localeCompare(a.posted_date || ""); });
+    return list;
+  }
+  function renderApartmentsAlt() {
+    var container = document.getElementById("apartmentsListAlt");
+    if (!container) return;
+    var list = getFilteredAndSortedApartmentsAlt();
+    container.innerHTML = "";
+    if (!list.length) {
+      container.innerHTML = "<div class=\"no-apartments\">No listings in this range. Try refreshing or adjust filters.</div>";
+      return;
+    }
+    list.forEach(function (apt) {
+      var card = document.createElement("div");
+      card.className = "apartment-card";
+      var badgeClass = "deal-badge";
+      if (apt.deal_score >= 80) badgeClass += " excellent";
+      else if (apt.deal_score >= 65) badgeClass += " good";
+      else if (apt.deal_score >= 50) badgeClass += " fair";
+      else badgeClass += " poor";
+      var bedStr = apt.bedrooms === 0 ? "Studio" : apt.bedrooms + " bed";
+      var bathStr = apt.bathrooms != null ? apt.bathrooms + " bath" : "";
+      var sqftStr = apt.sqft ? apt.sqft + " sqft" : "";
+      var marketHtml = "";
+      if (apt.discount_pct != null && apt.discount_pct !== undefined) {
+        var pct = apt.discount_pct;
+        var marketLabel = pct > 0 ? Math.abs(pct).toFixed(0) + "% below market" : (pct < 0 ? Math.abs(pct).toFixed(0) + "% above market" : "At market");
+        var marketCls = pct > 0 ? "positive" : (pct < 0 ? "negative" : "neutral");
+        marketHtml = "<div class=\"metric\"><span class=\"metric-label\">vs Market</span><span class=\"metric-value " + marketCls + "\">" + marketLabel + "</span></div>";
+      }
+      var neighborhoodForMap = (apt.neighborhood || "San Francisco").trim();
+      var lat = apt.latitude != null && apt.longitude != null ? Number(apt.latitude) : null;
+      var lon = apt.latitude != null && apt.longitude != null ? Number(apt.longitude) : null;
+      var defaultSF = [37.7849, -122.4094];
+      if (lat === null || lon === null) {
+        var sfNeighborhoods = { "mission": [37.7599, -122.4148], "soma": [37.7786, -122.4056], "nob hill": [37.7928, -122.4155], "nob-hill": [37.7928, -122.4155], "marina": [37.8025, -122.4364], "sunset": [37.7540, -122.5042], "richmond": [37.7804, -122.4602], "castro": [37.7609, -122.4350], "haight": [37.7699, -122.4464], "haight-ashbury": [37.7699, -122.4464], "pacific heights": [37.7912, -122.4368], "pac-heights": [37.7912, -122.4368], "inner sunset": [37.7543, -122.4650], "san francisco": [37.7849, -122.4094], "sf": [37.7849, -122.4094] };
+        var key = neighborhoodForMap.toLowerCase().replace(/\s+/g, " ").trim().replace(/\s/g, "-");
+        var coords = sfNeighborhoods[key] || sfNeighborhoods[key.replace(/-/g, " ")];
+        if (coords) { lat = coords[0]; lon = coords[1]; } else { lat = defaultSF[0]; lon = defaultSF[1]; }
+      }
+      var viewUrl = ensureCraigslistListingUrl(apt.url);
+      var photoBox = "";
+      if (apt.thumbnail_url) {
+        photoBox = "<div class=\"apt-photo-wrap\"><a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-thumbnail-link\"><img class=\"apt-thumbnail\" src=\"" + escapeHtml(apt.thumbnail_url) + "\" alt=\"Listing\" loading=\"lazy\" /></a></div>";
+      } else if (lat !== null && lon !== null) {
+        var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
+        var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
+        photoBox = "<div class=\"apt-map-wrap\"><iframe class=\"apt-map-iframe\" sandbox=\"allow-scripts\" title=\"Map: " + escapeHtml(neighborhoodForMap) + "\" src=\"" + escapeHtml(mapUrl) + "\" loading=\"lazy\"></iframe><div class=\"apt-map-label\">\uD83D\uDCCD " + escapeHtml(neighborhoodForMap) + ", San Francisco</div></div>";
+      } else {
+        var mapSearchQuery = encodeURIComponent(neighborhoodForMap + ", San Francisco, CA");
+        photoBox = "<div class=\"apt-photo-placeholder apt-location-placeholder\"><span class=\"apt-photo-icon\">\uD83D\uDCCD</span><span class=\"apt-photo-text\">" + escapeHtml(neighborhoodForMap) + "</span><span class=\"apt-photo-sub\">San Francisco</span><a href=\"https://www.google.com/maps/search/?api=1&query=" + mapSearchQuery + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-map-link\">View on map</a></div>";
+      }
+      card.innerHTML =
+        photoBox +
+        "<div class=\"" + badgeClass + "\">" + (apt.deal_score != null ? apt.deal_score : 0) + "/100</div>" +
+        "<div class=\"apt-header\"><h3 class=\"apt-title\">" + escapeHtml(apt.title || "Apartment Listing") + "</h3><div class=\"apt-price\">$" + (apt.price ? Number(apt.price).toLocaleString() : "0") + "/mo</div></div>" +
+        "<div class=\"apt-details\"><span class=\"apt-detail\">\uD83D\uCCCD " + escapeHtml(apt.neighborhood || "Unknown") + "</span><span class=\"apt-detail\">\uD83E\uDDE1 " + bedStr + "</span>" + (bathStr ? "<span class=\"apt-detail\">\uD83D\uDEBF " + bathStr + "</span>" : "") + (sqftStr ? "<span class=\"apt-detail\">\uD83D\uDCCF " + sqftStr + "</span>" : "") + "</div>" +
+        "<div class=\"apt-metrics\">" + (apt.price_per_sqft ? "<div class=\"metric\"><span class=\"metric-label\">Price/Sqft</span><span class=\"metric-value\">$" + Number(apt.price_per_sqft).toFixed(2) + "</span></div>" : "") + marketHtml + "</div>" +
+        "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
+        "<a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
+      container.appendChild(card);
+    });
+  }
+  var refreshApartmentsAltBtn = document.getElementById("refreshApartmentsAlt");
+  if (refreshApartmentsAltBtn) {
+    refreshApartmentsAltBtn.addEventListener("click", function () {
+      refreshApartmentsAltBtn.disabled = true;
+      refreshApartmentsAltBtn.textContent = "\uD83D\uDD04 Refreshing…";
+      fetch("/api/apartments/refresh", { method: "POST" })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.success) {
+            apartmentsAltData = data.apartments || [];
+            renderApartmentsAlt();
+            updateApartmentStatsAlt(data.stats || {});
+          }
+          refreshApartmentsAltBtn.textContent = "\uD83D\uDD04 Refresh Listings";
+          refreshApartmentsAltBtn.disabled = false;
+        })
+        .catch(function () {
+          refreshApartmentsAltBtn.textContent = "\uD83D\uDD04 Try Again";
+          refreshApartmentsAltBtn.disabled = false;
+        });
+    });
+  }
+  var neighborhoodFilterAlt = document.getElementById("neighborhoodFilterAlt");
+  var bedroomFilterAlt = document.getElementById("bedroomFilterAlt");
+  var sortByAlt = document.getElementById("sortByAlt");
+  if (neighborhoodFilterAlt) neighborhoodFilterAlt.addEventListener("change", function () { renderApartmentsAlt(); });
+  if (bedroomFilterAlt) bedroomFilterAlt.addEventListener("change", function () { renderApartmentsAlt(); });
+  if (sortByAlt) sortByAlt.addEventListener("change", function () { renderApartmentsAlt(); });
+
+  // --- Stanford Area Listings (alternate) ---
+  var stanfordApartmentsAltData = [];
+  function loadStanfordApartmentsAlt() {
+    var btn = document.getElementById("refreshStanfordApartmentsAlt");
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = "\uD83D\uDD04 Loading…";
+    fetch("/api/apartments/stanford")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error);
+        stanfordApartmentsAltData = data.apartments || [];
+        renderStanfordApartmentsAlt();
+        updateStanfordApartmentStatsAlt(data.stats || {});
+        btn.textContent = "\uD83D\uDD04 Refresh Listings";
+        btn.disabled = false;
+      })
+      .catch(function (err) {
+        console.error("Error loading alternate Stanford listings:", err);
+        var list = document.getElementById("stanfordApartmentsListAlt");
+        if (list) list.innerHTML = "<div class=\"error-message\">Error loading listings. Please try again.</div>";
+        btn.textContent = "\uD83D\uDD04 Try Again";
+        btn.disabled = false;
+      });
+  }
+  function updateStanfordApartmentStatsAlt(stats) {
+    var totalEl = document.getElementById("stanfordTotalListingsAlt");
+    var excellentEl = document.getElementById("stanfordExcellentDealsAlt");
+    var avgEl = document.getElementById("stanfordAvgPriceAlt");
+    if (totalEl) totalEl.textContent = stats.total || 0;
+    if (excellentEl) excellentEl.textContent = stats.excellent_deals || 0;
+    if (avgEl) avgEl.textContent = stats.average_price ? "$" + Number(stats.average_price).toLocaleString() : "$0";
+  }
+  function getFilteredAndSortedStanfordApartmentsAlt() {
+    var hoodFilter = document.getElementById("stanfordNeighborhoodFilterAlt");
+    var bedFilter = document.getElementById("stanfordBedroomFilterAlt");
+    var sortBy = document.getElementById("stanfordSortByAlt");
+    var list = stanfordApartmentsAltData.slice();
+    var hoodVal = hoodFilter ? hoodFilter.value : "all";
+    var bedVal = bedFilter ? bedFilter.value : "all";
+    var sortVal = sortBy ? sortBy.value : "best-deal";
+    if (hoodVal !== "all") list = list.filter(function (apt) { var slug = neighborhoodSlug(apt.neighborhood); return slug === hoodVal || slug.indexOf(hoodVal) !== -1; });
+    if (bedVal !== "all") list = list.filter(function (apt) { var b = apt.bedrooms; if (bedVal === "studio") return b === 0; if (bedVal === "3") return b >= 3; return b === parseInt(bedVal, 10); });
+    if (sortVal === "best-deal") list.sort(function (a, b) { return (b.deal_score || 0) - (a.deal_score || 0); });
+    else if (sortVal === "price-low") list.sort(function (a, b) { return (a.price || 0) - (b.price || 0); });
+    else if (sortVal === "price-sqft") list.sort(function (a, b) { return (a.price_per_sqft || 999) - (b.price_per_sqft || 999); });
+    else if (sortVal === "newest") list.sort(function (a, b) { return (b.posted_date || "").localeCompare(a.posted_date || ""); });
+    return list;
+  }
+  function renderStanfordApartmentsAlt() {
+    var container = document.getElementById("stanfordApartmentsListAlt");
+    if (!container) return;
+    var list = getFilteredAndSortedStanfordApartmentsAlt();
+    container.innerHTML = "";
+    if (!list.length) {
+      container.innerHTML = "<div class=\"no-apartments\">No listings in this range. Try refreshing or adjust filters.</div>";
+      return;
+    }
+    list.forEach(function (apt) {
+      var card = document.createElement("div");
+      card.className = "apartment-card";
+      var badgeClass = "deal-badge " + (apt.deal_score >= 80 ? "excellent" : apt.deal_score >= 65 ? "good" : apt.deal_score >= 50 ? "fair" : "poor");
+      var bedStr = apt.bedrooms === 0 ? "Studio" : apt.bedrooms + " bed";
+      var bathStr = apt.bathrooms != null ? apt.bathrooms + " bath" : "";
+      var sqftStr = apt.sqft ? apt.sqft + " sqft" : "";
+      var neighborhoodForMap = (apt.neighborhood || "Palo Alto").trim();
+      var coords = stanfordCoordsFromNeighborhood(neighborhoodForMap);
+      var lat = apt.latitude != null && apt.longitude != null ? Number(apt.latitude) : coords[0];
+      var lon = apt.latitude != null && apt.longitude != null ? Number(apt.longitude) : coords[1];
+      var viewUrl = ensureCraigslistListingUrl(apt.url);
+      var bbox = (lon - 0.015).toFixed(4) + "," + (lat - 0.01).toFixed(4) + "," + (lon + 0.015).toFixed(4) + "," + (lat + 0.01).toFixed(4);
+      var mapUrl = "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(bbox) + "&layer=mapnik&marker=" + encodeURIComponent(lat + "," + lon);
+      var photoBox = "<div class=\"apt-map-wrap\"><iframe class=\"apt-map-iframe\" sandbox=\"allow-scripts\" title=\"Map: " + escapeHtml(neighborhoodForMap) + "\" src=\"" + escapeHtml(mapUrl) + "\" loading=\"lazy\"></iframe><div class=\"apt-map-label\">\uD83D\uDCCD " + escapeHtml(neighborhoodForMap) + "</div></div>";
+      var marketHtml = (apt.discount_pct != null && apt.discount_pct !== undefined) ? "<div class=\"metric\"><span class=\"metric-label\">vs Market</span><span class=\"metric-value " + (apt.discount_pct > 0 ? "positive" : apt.discount_pct < 0 ? "negative" : "neutral") + "\">" + (apt.discount_pct > 0 ? Math.abs(apt.discount_pct).toFixed(0) + "% below market" : apt.discount_pct < 0 ? Math.abs(apt.discount_pct).toFixed(0) + "% above market" : "At market") + "</span></div>" : "";
+      card.innerHTML =
+        photoBox +
+        "<div class=\"" + badgeClass + "\">" + (apt.deal_score != null ? apt.deal_score : 0) + "/100</div>" +
+        "<div class=\"apt-header\"><h3 class=\"apt-title\">" + escapeHtml(apt.title || "Apartment Listing") + "</h3><div class=\"apt-price\">$" + (apt.price ? Number(apt.price).toLocaleString() : "0") + "/mo</div></div>" +
+        "<div class=\"apt-details\"><span class=\"apt-detail\">\uD83D\uCCCD " + escapeHtml(apt.neighborhood || "Unknown") + "</span><span class=\"apt-detail\">\uD83E\uDDE1 " + bedStr + "</span>" + (bathStr ? "<span class=\"apt-detail\">\uD83D\uDEBF " + bathStr + "</span>" : "") + (sqftStr ? "<span class=\"apt-detail\">\uD83D\uDCCF " + sqftStr + "</span>" : "") + "</div>" +
+        "<div class=\"apt-metrics\">" + (apt.price_per_sqft ? "<div class=\"metric\"><span class=\"metric-label\">Price/Sqft</span><span class=\"metric-value\">$" + Number(apt.price_per_sqft).toFixed(2) + "</span></div>" : "") + marketHtml + "</div>" +
+        "<div class=\"apt-analysis\">\uD83E\uDD16 " + escapeHtml(apt.deal_analysis || "Analysis pending…") + "</div>" +
+        "<a href=\"" + escapeHtml(viewUrl) + "\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"apt-link\">View Listing \u2192</a>";
+      container.appendChild(card);
+    });
+  }
+  var refreshStanfordAltBtn = document.getElementById("refreshStanfordApartmentsAlt");
+  if (refreshStanfordAltBtn) {
+    refreshStanfordAltBtn.addEventListener("click", function () {
+      refreshStanfordAltBtn.disabled = true;
+      refreshStanfordAltBtn.textContent = "\uD83D\uDD04 Refreshing…";
+      fetch("/api/apartments/stanford/refresh", { method: "POST" })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.success) {
+            stanfordApartmentsAltData = data.apartments || [];
+            renderStanfordApartmentsAlt();
+            updateStanfordApartmentStatsAlt(data.stats || {});
+          }
+          refreshStanfordAltBtn.textContent = "\uD83D\uDD04 Refresh Listings";
+          refreshStanfordAltBtn.disabled = false;
+        })
+        .catch(function () {
+          refreshStanfordAltBtn.textContent = "\uD83D\uDD04 Try Again";
+          refreshStanfordAltBtn.disabled = false;
+        });
+    });
+  }
+  var stanfordNeighborhoodFilterAlt = document.getElementById("stanfordNeighborhoodFilterAlt");
+  var stanfordBedroomFilterAlt = document.getElementById("stanfordBedroomFilterAlt");
+  var stanfordSortByAlt = document.getElementById("stanfordSortByAlt");
+  if (stanfordNeighborhoodFilterAlt) stanfordNeighborhoodFilterAlt.addEventListener("change", function () { renderStanfordApartmentsAlt(); });
+  if (stanfordBedroomFilterAlt) stanfordBedroomFilterAlt.addEventListener("change", function () { renderStanfordApartmentsAlt(); });
+  if (stanfordSortByAlt) stanfordSortByAlt.addEventListener("change", function () { renderStanfordApartmentsAlt(); });
 })();
