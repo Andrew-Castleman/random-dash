@@ -1176,18 +1176,20 @@ def _set_cached_analysis(url: Optional[str], deal_score: Any, deal_analysis: Any
 
 
 def _compute_discount_and_score(apt, market_rates):
-    """Set discount_pct and a simple deal_score for ranking. Returns True if apt is valid.
+    """Set discount_pct and deal_score using same logic as portal scoring. Returns True if apt is valid.
 
     Semantics: discount_pct = (market_rate - price) / market_rate * 100
     - Positive discount_pct = price BELOW market = good deal
     - Negative discount_pct = price ABOVE market = bad deal (overpriced)
+    Uses same bonuses as portal: laundry (+6/+2), parking (+4), bed:bath ratio (+3/+1), sqft (+2/+1)
     """
     if not apt.get("price"):
         apt["deal_score"] = 0
         apt["deal_analysis"] = "Price information missing."
         apt["discount_pct"] = None
         return False
-    if apt.get("bedrooms") is None:
+    bedrooms = apt.get("bedrooms")
+    if bedrooms is None:
         apt["deal_score"] = 40
         apt["deal_analysis"] = "Bedroom count not specified — difficult to evaluate value."
         apt["discount_pct"] = None
@@ -1197,19 +1199,34 @@ def _compute_discount_and_score(apt, market_rates):
     if hood_key not in market_rates:
         hood_key = hood_key.replace("-", " ")
     hood_rates = market_rates.get(hood_key, market_rates["default"])
-    bed_key = "studio" if apt["bedrooms"] == 0 else f"{min(apt['bedrooms'], 3)}br"
+    bed_key = "studio" if bedrooms == 0 else f"{min(bedrooms, 3)}br"
     market_rate = hood_rates.get(bed_key, hood_rates.get("1br"))
     # Below market → positive % (good); above market → negative % (bad)
     discount_pct = round((market_rate - apt["price"]) / market_rate * 100, 1) if market_rate else 0
     apt["discount_pct"] = discount_pct
     base = 50 + int(discount_pct)
-    # Bonuses: in-unit laundry (+3), in-building laundry (+1), parking (+2)
+    # Same bonuses as portal scoring for consistency
     if apt.get("laundry_type") == "in_unit":
-        base += 3
+        base += 6
     elif apt.get("laundry_type") == "in_building":
-        base += 1
-    if apt.get("parking"):
         base += 2
+    if apt.get("parking"):
+        base += 4
+    # Bed:bath ratio bonus (only if both present)
+    baths = apt.get("bathrooms")
+    if baths is not None and bedrooms is not None and bedrooms > 0:
+        if baths / bedrooms >= 1.0:
+            base += 3
+        elif baths / bedrooms >= 0.75:
+            base += 1
+    # Sqft bonus (only if present)
+    sqft = apt.get("sqft")
+    if sqft and bedrooms and bedrooms > 0:
+        sqft_per_bed = sqft / bedrooms
+        if sqft_per_bed >= 600:
+            base += 2
+        elif sqft_per_bed >= 500:
+            base += 1
     apt["deal_score"] = min(100, max(0, base))
     apt["deal_analysis"] = None  # filled by AI for top N, or placeholder for rest
     return True

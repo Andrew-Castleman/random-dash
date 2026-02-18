@@ -17,6 +17,12 @@ import requests
 
 from database import get_monthly_api_call_count, increment_api_call_count, reset_monthly_api_counter_if_needed
 
+try:
+    from craigslist_scraper import get_neighborhood_market_rates, get_stanford_market_rates
+except ImportError:
+    get_neighborhood_market_rates = None
+    get_stanford_market_rates = None
+
 logger = logging.getLogger(__name__)
 
 API_KEY = os.environ.get("RENTCAST_API_KEY", "").strip()
@@ -130,16 +136,28 @@ def _is_publicly_listed(item: dict[str, Any]) -> bool:
 
 
 def _listing_url(item: dict[str, Any], address: str) -> str:
-    """Real listing link: agent site, office site, mailto, or Google search fallback. Never return '#'."""
+    """Use link from API when available; else agent/office/builder site, mailto, Google only as last resort."""
+    # 1. Prefer any direct listing URL from the API (if they add url/link/listingUrl etc.)
+    for key in ("url", "link", "listingUrl", "listingLink", "sourceUrl", "propertyUrl", "listing_url"):
+        u = (item.get(key) or "").strip()
+        if u and (u.startswith("http://") or u.startswith("https://")):
+            return u
+    # 2. Agent, office, or builder website (from API)
     agent = item.get("listingAgent") or {}
     office = item.get("listingOffice") or {}
-    url = (agent.get("website") or "").strip() or (office.get("website") or "").strip()
+    builder = item.get("builder") or {}
+    url = (
+        (agent.get("website") or "").strip()
+        or (office.get("website") or "").strip()
+        or (builder.get("website") or "").strip()
+    )
     if url and (url.startswith("http://") or url.startswith("https://")):
         return url
+    # 3. Contact email
     email = (agent.get("email") or office.get("email") or "").strip()
     if email:
         return "mailto:" + email
-    # No contact info: link to search so user can find the listing
+    # 4. Only then fall back to Google search
     query = quote_plus((address or item.get("city") or "rental") + " rental listing")
     return "https://www.google.com/search?q=" + query
 
@@ -194,6 +212,94 @@ def _normalize(item: dict[str, Any]) -> dict[str, Any]:
         "longitude": lon,
         "source": "portal",
     }
+
+
+def _score_portal_listing(apt: dict[str, Any], market_rates: dict[str, Any]) -> None:
+    """
+    Set deal_score (0-100), discount_pct, and deal_analysis from listing details vs neighborhood.
+    Uses: bedrooms, bathrooms, br:bath ratio, laundry, parking, sqft, price vs neighborhood expectations.
+    """
+    if not apt.get("price"):
+        apt["deal_score"] = 0
+        apt["deal_analysis"] = "Price information missing."
+        apt["discount_pct"] = None
+        return
+    bedrooms = apt.get("bedrooms")
+    if bedrooms is None:
+        apt["deal_score"] = 40
+        apt["deal_analysis"] = "Bedroom count not specified — difficult to evaluate value."
+        apt["discount_pct"] = None
+        return
+
+    neighborhood = (apt.get("neighborhood") or "").strip()
+    hood_key = neighborhood.lower().replace(" ", "-") if neighborhood else "default"
+    if hood_key not in (market_rates or {}):
+        hood_key = hood_key.replace("-", " ")
+    rates = (market_rates or {}).get(hood_key, (market_rates or {}).get("default", {}))
+    bed_key = "studio" if bedrooms == 0 else f"{min(bedrooms, 3)}br"
+    market_rate = rates.get(bed_key, rates.get("1br", 3000))
+    discount_pct = round((market_rate - apt["price"]) / market_rate * 100, 1) if market_rate else 0
+    apt["discount_pct"] = discount_pct
+
+    base = 50 + int(discount_pct)
+    if apt.get("laundry_type") == "in_unit":
+        base += 6
+    elif apt.get("laundry_type") == "in_building":
+        base += 2
+    if apt.get("parking"):
+        base += 4
+    baths = apt.get("bathrooms")
+    if baths is not None and bedrooms is not None and bedrooms > 0:
+        if baths / bedrooms >= 1.0:
+            base += 3
+        elif baths / bedrooms >= 0.75:
+            base += 1
+    sqft = apt.get("sqft")
+    if sqft and bedrooms and bedrooms > 0:
+        sqft_per_bed = sqft / bedrooms
+        if sqft_per_bed >= 600:
+            base += 2
+        elif sqft_per_bed >= 500:
+            base += 1
+
+    apt["deal_score"] = min(100, max(0, base))
+    parts = []
+    if discount_pct > 5:
+        parts.append(f"~{discount_pct:.0f}% below market for {bed_key} in {neighborhood or 'area'}.")
+    elif discount_pct < -5:
+        parts.append(f"~{abs(discount_pct):.0f}% above typical for {bed_key} in {neighborhood or 'area'}.")
+    else:
+        parts.append(f"Roughly at market for {bed_key} in {neighborhood or 'area'}.")
+    if apt.get("laundry_type") == "in_unit":
+        parts.append("In-unit laundry.")
+    elif apt.get("laundry_type") == "in_building":
+        parts.append("Laundry in building.")
+    if apt.get("parking"):
+        parts.append("Parking.")
+    if baths is not None and bedrooms and baths >= bedrooms:
+        parts.append("Full bath per bedroom.")
+    if sqft and bedrooms and bedrooms > 0 and sqft / bedrooms >= 550:
+        parts.append("Good sqft for bedroom count.")
+    apt["deal_analysis"] = " ".join(parts).strip() or "Listed via portal. Contact agent for details."
+
+
+def _apply_portal_scores(entries: list[dict[str, Any]], get_market_rates: Any) -> None:
+    """Apply deal scores to portal entries using neighborhood market rates."""
+    if not get_market_rates:
+        return
+    try:
+        market_rates = get_market_rates()
+    except Exception as e:
+        logger.warning("Portal scoring: could not get market rates: %s", e)
+        return
+    for apt in entries:
+        try:
+            _score_portal_listing(apt, market_rates)
+        except Exception as e:
+            logger.debug("Portal score one listing: %s", e)
+            apt["deal_score"] = 50
+            apt["deal_analysis"] = "Listed via portal. Contact agent for details."
+            apt["discount_pct"] = None
 
 
 def _get_cached_api_count() -> int:
@@ -278,6 +384,7 @@ def get_portal_listings_sf(
             entries, ts = _cache[cache_key]
             if now - ts < CACHE_TTL and entries:
                 logger.debug("Returning cached SF listings (age: %ss)", int(now - ts))
+                _apply_portal_scores(entries, get_neighborhood_market_rates)
                 return entries[:max_return]
             stale_entries, stale_ts = entries, ts  # keep for limit fallback
         else:
@@ -286,6 +393,7 @@ def get_portal_listings_sf(
     if _get_cached_api_count() >= MAX_MONTHLY_CALLS:
         if stale_entries:
             logger.info("Monthly limit reached; serving stale SF cache (age: %ss)", int(now - stale_ts))
+            _apply_portal_scores(stale_entries, get_neighborhood_market_rates)
             return stale_entries[:max_return]
         logger.warning("Monthly API limit reached. No stale cache. Returning empty.")
         return []
@@ -293,12 +401,14 @@ def get_portal_listings_sf(
     _rate_limit("sf")
     raw = _fetch("San Francisco", "CA", min_price, max_price, max_return)
     entries = [_normalize(it) for it in raw if _is_publicly_listed(it)]
+    _apply_portal_scores(entries, get_neighborhood_market_rates)
     with _cache_lock:
         if entries or cache_key not in _cache:
             _cache[cache_key] = (entries, time.time())
             _save_persistent_cache()
         elif cache_key in _cache:
             entries, _ = _cache[cache_key]
+    _apply_portal_scores(entries, get_neighborhood_market_rates)
     return entries[:max_return]
 
 
@@ -315,6 +425,7 @@ def get_portal_listings_stanford(
             entries, ts = _cache[cache_key]
             if now - ts < CACHE_TTL and entries:
                 logger.debug("Returning cached Stanford listings (age: %ss)", int(now - ts))
+                _apply_portal_scores(entries, get_stanford_market_rates)
                 return entries[:max_return]
             stale_entries, stale_ts = entries, ts
         else:
@@ -323,6 +434,7 @@ def get_portal_listings_stanford(
     if _get_cached_api_count() >= MAX_MONTHLY_CALLS:
         if stale_entries:
             logger.info("Monthly limit reached; serving stale Stanford cache (age: %ss)", int(now - stale_ts))
+            _apply_portal_scores(stale_entries, get_stanford_market_rates)
             return stale_entries[:max_return]
         logger.warning("Monthly API limit reached. No stale cache. Returning empty.")
         return []
@@ -363,10 +475,12 @@ def get_portal_listings_stanford(
                 except Exception as e:
                     logger.warning("Error fetching %s: %s", city, e)
     all_entries.sort(key=lambda x: x.get("price") or 0)
+    _apply_portal_scores(all_entries, get_stanford_market_rates)
     with _cache_lock:
         if all_entries or cache_key not in _cache:
             _cache[cache_key] = (all_entries, time.time())
             _save_persistent_cache()
         elif cache_key in _cache:
             all_entries, _ = _cache[cache_key]
+    _apply_portal_scores(all_entries, get_stanford_market_rates)
     return all_entries[:max_return]
